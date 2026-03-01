@@ -78,13 +78,13 @@ export function MapEditor({ tripId, markers }: MapEditorProps) {
   }
 
   return (
-    <section className="space-y-3 rounded-xl bg-white p-5 shadow-sm ring-1 ring-slate-200">
+    <section className="space-y-3 rounded-xl bg-white/90 p-5 shadow-md ring-1 ring-[#ffd2e6]">
       <div>
         <h2 className="text-xl font-semibold text-slate-900">Map markers</h2>
-        <p className="text-sm text-slate-600">Click the map to pick a point, then add details.</p>
+        <p className="text-sm text-slate-700">Click the map to pick a point, then add details.</p>
       </div>
 
-      <div className="h-80 overflow-hidden rounded-lg border border-slate-200">
+      <div className="h-80 overflow-hidden rounded-lg border border-[#ffd2e6]">
         <MapContainer center={center} zoom={2} className="h-full w-full">
           <TileLayer
             attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
@@ -108,19 +108,19 @@ export function MapEditor({ tripId, markers }: MapEditorProps) {
       </div>
 
       <form onSubmit={addMarker} className="grid gap-3 md:grid-cols-2">
-        <label className="text-sm font-medium text-slate-700">
+        <label className="text-sm font-medium text-slate-800">
           Name
           <input
-            className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2"
+            className="mt-1 w-full rounded-md border border-slate-300 bg-slate-50 px-3 py-2 outline-none transition focus:border-[#ff6a3d] focus:ring-2 focus:ring-[#ffd2e6]"
             value={name}
             onChange={(event) => setName(event.target.value)}
             required
           />
         </label>
-        <label className="text-sm font-medium text-slate-700">
+        <label className="text-sm font-medium text-slate-800">
           Description
           <input
-            className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2"
+            className="mt-1 w-full rounded-md border border-slate-300 bg-slate-50 px-3 py-2 outline-none transition focus:border-[#ff6a3d] focus:ring-2 focus:ring-[#ffd2e6]"
             value={description}
             onChange={(event) => setDescription(event.target.value)}
           />
@@ -128,18 +128,18 @@ export function MapEditor({ tripId, markers }: MapEditorProps) {
         <button
           type="submit"
           disabled={!pending || saving}
-          className="w-fit rounded-md bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-700 disabled:opacity-60"
+          className="w-fit rounded-md bg-gradient-to-r from-[#ff6a3d] to-[#ff4f8b] px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:from-[#ff7b52] hover:to-[#ff62a0] disabled:opacity-60"
         >
           {saving ? "Saving..." : "Add marker"}
         </button>
       </form>
 
       {pending ? (
-        <p className="text-xs text-slate-600">
+        <p className="text-xs text-slate-700">
           Selected coordinates: {pending.latitude.toFixed(4)}, {pending.longitude.toFixed(4)}
         </p>
       ) : (
-        <p className="text-xs text-slate-600">No location selected yet.</p>
+        <p className="text-xs text-slate-700">No location selected yet.</p>
       )}
 
       {error ? <p className="text-sm text-red-600">{error}</p> : null}

@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
 import { createSupabaseBrowserClient } from "@/lib/supabase-client";
 
 type AuthFormProps = {
@@ -10,8 +9,6 @@ type AuthFormProps = {
 };
 
 export function AuthForm({ mode, enabled = true }: AuthFormProps) {
-  const router = useRouter();
-
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
@@ -25,44 +22,64 @@ export function AuthForm({ mode, enabled = true }: AuthFormProps) {
       return;
     }
 
-    const supabase = createSupabaseBrowserClient();
     setLoading(true);
     setError(null);
     setMessage(null);
+    try {
+      const supabase = createSupabaseBrowserClient();
+      const normalizedEmail = email.trim().toLowerCase();
 
-    if (mode === "signup") {
-      const { error: signUpError } = await supabase.auth.signUp({
-        email,
-        password,
-        options: {
-          emailRedirectTo: `${window.location.origin}/dashboard`
+      if (mode === "signup") {
+        const { error: signUpError } = await supabase.auth.signUp({
+          email: normalizedEmail,
+          password,
+          options: {
+            emailRedirectTo: `${window.location.origin}/dashboard`
+          }
+        });
+
+        if (signUpError) {
+          setError(signUpError.message);
+        } else {
+          setMessage("Account created. Confirm your email, then log in.");
         }
-      });
+      } else {
+        const { error: loginError } = await supabase.auth.signInWithPassword({
+          email: normalizedEmail,
+          password
+        });
+        if (loginError) {
+          setError(loginError.message);
+        } else {
+          const {
+            data: { session }
+          } = await supabase.auth.getSession();
+          if (!session) {
+            setError("Login succeeded but session was not created. Please refresh and try again.");
+            return;
+          }
 
-      if (signUpError) {
-        setError(signUpError.message);
-      } else {
-        setMessage("Account created. Confirm your email, then log in.");
+          window.location.assign("/dashboard");
+        }
       }
-    } else {
-      const { error: loginError } = await supabase.auth.signInWithPassword({ email, password });
-      if (loginError) {
-        setError(loginError.message);
-      } else {
-        router.push("/dashboard");
-        router.refresh();
-      }
+    } catch (submitError) {
+      setError(submitError instanceof Error ? submitError.message : "Unexpected authentication error");
+    } finally {
+      setLoading(false);
     }
-
-    setLoading(false);
   }
 
   return (
-    <form onSubmit={onSubmit} className="space-y-4 rounded-xl bg-white p-6 shadow-sm ring-1 ring-slate-200">
-      <label className="block text-sm font-medium text-slate-700">
+    <form
+      onSubmit={onSubmit}
+      className="space-y-4 rounded-2xl bg-white/90 p-6 shadow-md ring-1 ring-[#ffd2e6]"
+      style={{ backgroundColor: "rgba(255,255,255,0.9)", borderRadius: 16, padding: 24, boxShadow: "0 10px 30px rgba(15, 23, 42, 0.08)", border: "1px solid #ffd2e6" }}
+    >
+      <label className="block text-sm font-medium text-slate-800" style={{ display: "block", color: "#1f2937", fontWeight: 600 }}>
         Email
         <input
-          className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2"
+          className="mt-1 w-full rounded-md border border-slate-300 bg-slate-50 px-3 py-2 outline-none transition focus:border-[#ff6a3d] focus:ring-2 focus:ring-[#ffd2e6]"
+          style={{ display: "block", width: "100%", marginTop: 6, borderRadius: 8, border: "1px solid #cbd5e1", backgroundColor: "#f8fafc", padding: "10px 12px" }}
           type="email"
           value={email}
           onChange={(event) => setEmail(event.target.value)}
@@ -70,10 +87,11 @@ export function AuthForm({ mode, enabled = true }: AuthFormProps) {
         />
       </label>
 
-      <label className="block text-sm font-medium text-slate-700">
+      <label className="block text-sm font-medium text-slate-800" style={{ display: "block", color: "#1f2937", fontWeight: 600 }}>
         Password
         <input
-          className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2"
+          className="mt-1 w-full rounded-md border border-slate-300 bg-slate-50 px-3 py-2 outline-none transition focus:border-[#ff6a3d] focus:ring-2 focus:ring-[#ffd2e6]"
+          style={{ display: "block", width: "100%", marginTop: 6, borderRadius: 8, border: "1px solid #cbd5e1", backgroundColor: "#f8fafc", padding: "10px 12px" }}
           type="password"
           value={password}
           onChange={(event) => setPassword(event.target.value)}
@@ -83,12 +101,21 @@ export function AuthForm({ mode, enabled = true }: AuthFormProps) {
       </label>
 
       {error ? <p className="text-sm text-red-600">{error}</p> : null}
-      {message ? <p className="text-sm text-brand-600">{message}</p> : null}
+      {message ? <p className="text-sm text-[#ff4f8b]">{message}</p> : null}
 
       <button
         type="submit"
         disabled={loading || !enabled}
-        className="w-full rounded-md bg-slate-900 px-4 py-2 font-semibold text-white hover:bg-slate-700 disabled:opacity-60"
+        className="w-full rounded-md bg-gradient-to-r from-[#ff6a3d] to-[#ff4f8b] px-4 py-2 font-semibold text-white shadow-sm transition hover:from-[#ff7b52] hover:to-[#ff62a0] disabled:opacity-60"
+        style={{
+          width: "100%",
+          borderRadius: 8,
+          border: "none",
+          padding: "10px 14px",
+          fontWeight: 700,
+          color: "#fff",
+          backgroundImage: "linear-gradient(90deg, #ff6a3d, #ff4f8b)"
+        }}
       >
         {!enabled ? "Supabase not configured" : loading ? "Please wait..." : mode === "signup" ? "Create account" : "Log in"}
       </button>

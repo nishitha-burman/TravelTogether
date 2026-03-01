@@ -16,10 +16,10 @@ export default async function DashboardPage() {
         </div>
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-3xl font-bold text-slate-900">Your itineraries</h1>
-            <p className="text-slate-600">Create, share and iterate with your group.</p>
+            <h1 className="text-3xl font-bold text-[#ff4f8b]">Your itineraries</h1>
+            <p className="text-slate-700">Create, share and iterate with your group.</p>
           </div>
-          <Link href="/trips/new" className="rounded-md bg-brand-600 px-4 py-2 font-semibold text-white hover:bg-brand-500">
+          <Link href="/trips/new" className="rounded-md bg-gradient-to-r from-[#ff6a3d] to-[#ff4f8b] px-4 py-2 font-semibold text-white shadow-sm transition hover:from-[#ff7b52] hover:to-[#ff62a0]">
             New itinerary
           </Link>
         </div>
@@ -29,11 +29,11 @@ export default async function DashboardPage() {
             <Link
               key={trip.id}
               href={`/trips/${trip.id}`}
-              className="rounded-xl bg-white p-5 shadow-sm ring-1 ring-slate-200 transition hover:shadow"
+              className="rounded-xl bg-white/90 p-5 shadow-md ring-1 ring-[#ffd2e6] transition hover:shadow-lg"
             >
               <h2 className="text-xl font-semibold text-slate-900">{trip.title}</h2>
-              <p className="text-slate-600">{trip.destination}</p>
-              <p className="mt-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
+              <p className="text-slate-700">{trip.destination}</p>
+              <p className="mt-2 text-xs font-semibold uppercase tracking-wide text-slate-700">
                 {trip.is_public ? "Public" : "Private"} • Demo data
               </p>
             </Link>
@@ -80,19 +80,19 @@ export default async function DashboardPage() {
   );
   const error = ownedError ?? memberError ?? memberTripsError;
   const errorMessage = error?.message ?? null;
-  const missingSchema =
-    Boolean(errorMessage) &&
-    (errorMessage.includes("Could not find the table 'public.itineraries'") ||
-      errorMessage.includes('relation "public.itineraries" does not exist'));
+  const missingSchema = errorMessage
+    ? errorMessage.includes("Could not find the table 'public.itineraries'") ||
+      errorMessage.includes('relation "public.itineraries" does not exist')
+    : false;
 
   return (
     <section className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-slate-900">Your itineraries</h1>
-          <p className="text-slate-600">Create, share and iterate with your group.</p>
+          <h1 className="text-3xl font-bold text-[#ff4f8b]">Your itineraries</h1>
+          <p className="text-slate-700">Create, share and iterate with your group.</p>
         </div>
-        <Link href="/trips/new" className="rounded-md bg-brand-600 px-4 py-2 font-semibold text-white hover:bg-brand-500">
+        <Link href="/trips/new" className="rounded-md bg-gradient-to-r from-[#ff6a3d] to-[#ff4f8b] px-4 py-2 font-semibold text-white shadow-sm transition hover:from-[#ff7b52] hover:to-[#ff62a0]">
           New itinerary
         </Link>
       </div>
@@ -110,11 +110,11 @@ export default async function DashboardPage() {
           <Link
             key={trip.id}
             href={`/trips/${trip.id}`}
-            className="rounded-xl bg-white p-5 shadow-sm ring-1 ring-slate-200 transition hover:shadow"
+            className="rounded-xl bg-white/90 p-5 shadow-md ring-1 ring-[#ffd2e6] transition hover:shadow-lg"
           >
             <h2 className="text-xl font-semibold text-slate-900">{trip.title}</h2>
-            <p className="text-slate-600">{trip.destination}</p>
-            <p className="mt-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
+            <p className="text-slate-700">{trip.destination}</p>
+            <p className="mt-2 text-xs font-semibold uppercase tracking-wide text-slate-700">
               {trip.is_public ? "Public" : "Private"} • Updated {new Date(trip.updated_at).toLocaleDateString()}
             </p>
           </Link>
@@ -122,7 +122,7 @@ export default async function DashboardPage() {
       </div>
 
       {trips?.length === 0 ? (
-        <div className="rounded-xl bg-white p-6 text-slate-600 shadow-sm ring-1 ring-slate-200">
+        <div className="rounded-xl bg-white/90 p-6 text-slate-700 shadow-md ring-1 ring-[#ffd2e6]">
           No trips yet. Start with destination, image, map markers and day timeline.
         </div>
       ) : null}

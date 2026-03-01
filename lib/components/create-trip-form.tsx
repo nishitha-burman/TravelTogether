@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createSupabaseBrowserClient } from "@/lib/supabase-client";
 import { getAuthJsonHeaders } from "@/lib/client-api";
@@ -9,17 +9,75 @@ type CreateTripFormProps = {
   enabled?: boolean;
 };
 
+type DestinationSuggestion = {
+  id: string;
+  location: string;
+  country: string;
+  label: string;
+};
+
 export function CreateTripForm({ enabled = true }: CreateTripFormProps) {
   const router = useRouter();
 
   const [title, setTitle] = useState("");
   const [destination, setDestination] = useState("");
+  const [destinationSuggestions, setDestinationSuggestions] = useState<DestinationSuggestion[]>([]);
+  const [showDestinationSuggestions, setShowDestinationSuggestions] = useState(false);
+  const [destinationLoading, setDestinationLoading] = useState(false);
   const [tripLengthDays, setTripLengthDays] = useState(5);
   const [isPublic, setIsPublic] = useState(false);
   const [themeImageUrl, setThemeImageUrl] = useState("");
   const [themeFile, setThemeFile] = useState<File | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const skipNextLookupRef = useRef(false);
+
+  useEffect(() => {
+    if (skipNextLookupRef.current) {
+      skipNextLookupRef.current = false;
+      return;
+    }
+
+    const query = destination.trim();
+    if (query.length < 1) {
+      setDestinationSuggestions([]);
+      setShowDestinationSuggestions(false);
+      setDestinationLoading(false);
+      return;
+    }
+
+    const controller = new AbortController();
+    setDestinationLoading(true);
+    void (async () => {
+      try {
+        const response = await fetch(`/api/locations/search?q=${encodeURIComponent(query)}`, {
+          signal: controller.signal
+        });
+
+        if (!response.ok) {
+          throw new Error("Failed to fetch destinations");
+        }
+
+        const body = (await response.json()) as { suggestions?: DestinationSuggestion[] };
+        const suggestions = body.suggestions ?? [];
+        setDestinationSuggestions(suggestions);
+        setShowDestinationSuggestions(suggestions.length > 0);
+      } catch {
+        if (!controller.signal.aborted) {
+          setDestinationSuggestions([]);
+          setShowDestinationSuggestions(false);
+        }
+      } finally {
+        if (!controller.signal.aborted) {
+          setDestinationLoading(false);
+        }
+      }
+    })();
+
+    return () => {
+      controller.abort();
+    };
+  }, [destination]);
 
   async function uploadThemeImageIfNeeded() {
     if (!themeFile) return themeImageUrl || null;
@@ -85,30 +143,67 @@ export function CreateTripForm({ enabled = true }: CreateTripFormProps) {
   }
 
   return (
-    <form onSubmit={onSubmit} className="space-y-4 rounded-xl bg-white p-6 shadow-sm ring-1 ring-slate-200">
-      <label className="block text-sm font-medium text-slate-700">
+    <form onSubmit={onSubmit} className="space-y-4 rounded-2xl bg-white/90 p-6 shadow-md ring-1 ring-[#ffd2e6]">
+      <label className="block text-sm font-medium text-slate-800">
         Trip title
         <input
           value={title}
           onChange={(event) => setTitle(event.target.value)}
-          className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2"
+          className="mt-1 w-full rounded-md border border-slate-300 bg-slate-50 px-3 py-2 outline-none transition focus:border-[#ff6a3d] focus:ring-2 focus:ring-[#ffd2e6]"
           placeholder="Summer in Lisbon"
           required
         />
       </label>
 
-      <label className="block text-sm font-medium text-slate-700">
-        Destination
-        <input
-          value={destination}
-          onChange={(event) => setDestination(event.target.value)}
-          className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2"
-          placeholder="Lisbon, Portugal"
-          required
-        />
-      </label>
+      <div className="relative">
+        <label className="block text-sm font-medium text-slate-800">
+          Destination
+          <input
+            value={destination}
+            onChange={(event) => setDestination(event.target.value)}
+            onFocus={() => {
+              if (destinationSuggestions.length > 0) {
+                setShowDestinationSuggestions(true);
+              }
+            }}
+            onBlur={() => {
+              setTimeout(() => setShowDestinationSuggestions(false), 100);
+            }}
+            autoComplete="off"
+            className="mt-1 w-full rounded-md border border-slate-300 bg-slate-50 px-3 py-2 outline-none transition focus:border-[#ff6a3d] focus:ring-2 focus:ring-[#ffd2e6]"
+            placeholder="Lisbon, Portugal"
+            required
+          />
+        </label>
 
-      <label className="block text-sm font-medium text-slate-700">
+        {showDestinationSuggestions ? (
+          <div className="absolute z-10 mt-1 w-full rounded-md border border-[#ffd2e6] bg-white shadow-lg">
+            <ul className="max-h-64 overflow-y-auto py-1" role="listbox" aria-label="Destination suggestions">
+              {destinationSuggestions.map((suggestion) => (
+                <li key={suggestion.id}>
+                  <button
+                    type="button"
+                    className="w-full px-3 py-2 text-left transition hover:bg-[#fff1f7]"
+                    onMouseDown={(event) => event.preventDefault()}
+                    onClick={() => {
+                      skipNextLookupRef.current = true;
+                      setDestination(suggestion.label);
+                      setShowDestinationSuggestions(false);
+                      setDestinationSuggestions([]);
+                    }}
+                  >
+                    <span className="block font-medium text-slate-900">{suggestion.location}</span>
+                    <span className="block text-sm text-slate-700">{suggestion.country}</span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </div>
+        ) : null}
+        {destinationLoading ? <p className="mt-1 text-xs text-slate-700">Looking up destinations...</p> : null}
+      </div>
+
+      <label className="block text-sm font-medium text-slate-800">
         Trip length (days)
         <input
           type="number"
@@ -116,38 +211,38 @@ export function CreateTripForm({ enabled = true }: CreateTripFormProps) {
           max={60}
           value={tripLengthDays}
           onChange={(event) => setTripLengthDays(Number(event.target.value))}
-          className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2"
+          className="mt-1 w-full rounded-md border border-slate-300 bg-slate-50 px-3 py-2 outline-none transition focus:border-[#ff6a3d] focus:ring-2 focus:ring-[#ffd2e6]"
           required
         />
       </label>
 
-      <label className="block text-sm font-medium text-slate-700">
+      <label className="block text-sm font-medium text-slate-800">
         Theme image URL (optional)
         <input
           type="url"
           value={themeImageUrl}
           onChange={(event) => setThemeImageUrl(event.target.value)}
-          className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2"
+          className="mt-1 w-full rounded-md border border-slate-300 bg-slate-50 px-3 py-2 outline-none transition focus:border-[#ff6a3d] focus:ring-2 focus:ring-[#ffd2e6]"
           placeholder="https://..."
         />
       </label>
 
-      <label className="block text-sm font-medium text-slate-700">
+      <label className="block text-sm font-medium text-slate-800">
         Or upload theme image (optional)
         <input
           type="file"
           accept="image/*"
           onChange={(event) => setThemeFile(event.target.files?.[0] ?? null)}
-          className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2"
+          className="mt-1 w-full rounded-md border border-slate-300 bg-slate-50 px-3 py-2 outline-none transition focus:border-[#ff6a3d] focus:ring-2 focus:ring-[#ffd2e6]"
         />
       </label>
 
-      <label className="flex items-center gap-2 text-sm font-medium text-slate-700">
+      <label className="flex items-center gap-2 text-sm font-medium text-slate-800">
         <input
           type="checkbox"
           checked={isPublic}
           onChange={(event) => setIsPublic(event.target.checked)}
-          className="h-4 w-4"
+          className="h-4 w-4 accent-[#ff4f8b]"
         />
         Public itinerary (anyone with link can view)
       </label>
@@ -157,7 +252,7 @@ export function CreateTripForm({ enabled = true }: CreateTripFormProps) {
       <button
         type="submit"
         disabled={loading || !enabled}
-        className="rounded-md bg-slate-900 px-4 py-2 font-semibold text-white hover:bg-slate-700 disabled:opacity-60"
+        className="rounded-md bg-gradient-to-r from-[#ff6a3d] to-[#ff4f8b] px-4 py-2 font-semibold text-white shadow-sm transition hover:from-[#ff7b52] hover:to-[#ff62a0] disabled:opacity-60"
       >
         {!enabled ? "Supabase not configured" : loading ? "Creating..." : "Create itinerary"}
       </button>

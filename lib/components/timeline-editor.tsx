@@ -121,21 +121,21 @@ export function TimelineEditor({ tripId, days, events }: TimelineEditorProps) {
   }
 
   return (
-    <section className="space-y-4 rounded-xl bg-white p-5 shadow-sm ring-1 ring-slate-200">
+    <section className="space-y-4 rounded-xl bg-white/90 p-5 shadow-md ring-1 ring-[#ffd2e6]">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h2 className="text-xl font-semibold text-slate-900">Timeline</h2>
-          <p className="text-sm text-slate-600">Toggle full trip length vs condensed (only active days).</p>
+          <p className="text-sm text-slate-700">Toggle full trip length vs condensed (only active days).</p>
         </div>
-        <div className="flex rounded-md border border-slate-300 p-1">
+        <div className="flex rounded-md border border-[#ffd2e6] bg-slate-50 p-1">
           <button
-            className={`rounded px-3 py-1 text-sm ${viewMode === "full" ? "bg-slate-900 text-white" : "text-slate-700"}`}
+            className={`rounded px-3 py-1 text-sm ${viewMode === "full" ? "bg-gradient-to-r from-[#ff6a3d] to-[#ff4f8b] text-white" : "text-slate-800"}`}
             onClick={() => setViewMode("full")}
           >
             Full
           </button>
           <button
-            className={`rounded px-3 py-1 text-sm ${viewMode === "condensed" ? "bg-slate-900 text-white" : "text-slate-700"}`}
+            className={`rounded px-3 py-1 text-sm ${viewMode === "condensed" ? "bg-gradient-to-r from-[#ff6a3d] to-[#ff4f8b] text-white" : "text-slate-800"}`}
             onClick={() => setViewMode("condensed")}
           >
             Condensed
@@ -144,29 +144,29 @@ export function TimelineEditor({ tripId, days, events }: TimelineEditorProps) {
       </div>
 
       <div className="grid gap-4 lg:grid-cols-2">
-        <form onSubmit={addDay} className="space-y-2 rounded-lg border border-slate-200 p-4">
+        <form onSubmit={addDay} className="space-y-2 rounded-lg border border-[#ffd2e6] bg-white p-4">
           <h3 className="font-semibold text-slate-900">Add day</h3>
           <input
             value={newDayLabel}
             onChange={(event) => setNewDayLabel(event.target.value)}
             placeholder="Optional label (Arrival Day)"
-            className="w-full rounded-md border border-slate-300 px-3 py-2"
+            className="w-full rounded-md border border-slate-300 bg-slate-50 px-3 py-2 outline-none transition focus:border-[#ff6a3d] focus:ring-2 focus:ring-[#ffd2e6]"
           />
           <button
             type="submit"
             disabled={saving}
-            className="rounded-md bg-brand-600 px-3 py-2 text-sm font-semibold text-white hover:bg-brand-500 disabled:opacity-60"
+            className="rounded-md bg-gradient-to-r from-[#ff6a3d] to-[#ff4f8b] px-3 py-2 text-sm font-semibold text-white shadow-sm transition hover:from-[#ff7b52] hover:to-[#ff62a0] disabled:opacity-60"
           >
             Add day
           </button>
         </form>
 
-        <form onSubmit={addEvent} className="space-y-3 rounded-lg border border-slate-200 p-4">
+        <form onSubmit={addEvent} className="space-y-3 rounded-lg border border-[#ffd2e6] bg-white p-4">
           <h3 className="font-semibold text-slate-900">Add event</h3>
           <select
             value={dayNumber}
             onChange={(event) => setDayNumber(Number(event.target.value))}
-            className="w-full rounded-md border border-slate-300 px-3 py-2"
+            className="w-full rounded-md border border-slate-300 bg-slate-50 px-3 py-2 outline-none transition focus:border-[#ff6a3d] focus:ring-2 focus:ring-[#ffd2e6]"
           >
             {days.map((day) => (
               <option key={day.id} value={day.day_number}>
@@ -179,7 +179,7 @@ export function TimelineEditor({ tripId, days, events }: TimelineEditorProps) {
             value={title}
             onChange={(event) => setTitle(event.target.value)}
             placeholder="Event title"
-            className="w-full rounded-md border border-slate-300 px-3 py-2"
+            className="w-full rounded-md border border-slate-300 bg-slate-50 px-3 py-2 outline-none transition focus:border-[#ff6a3d] focus:ring-2 focus:ring-[#ffd2e6]"
             required
           />
 
@@ -189,7 +189,7 @@ export function TimelineEditor({ tripId, days, events }: TimelineEditorProps) {
               setEventType(event.target.value as EventType);
               setMeta({});
             }}
-            className="w-full rounded-md border border-slate-300 px-3 py-2"
+            className="w-full rounded-md border border-slate-300 bg-slate-50 px-3 py-2 outline-none transition focus:border-[#ff6a3d] focus:ring-2 focus:ring-[#ffd2e6]"
           >
             {EVENT_TYPES.map((type) => (
               <option key={type} value={type}>
@@ -203,13 +203,13 @@ export function TimelineEditor({ tripId, days, events }: TimelineEditorProps) {
               type="time"
               value={startTime}
               onChange={(event) => setStartTime(event.target.value)}
-              className="w-full rounded-md border border-slate-300 px-3 py-2"
+              className="w-full rounded-md border border-slate-300 bg-slate-50 px-3 py-2 outline-none transition focus:border-[#ff6a3d] focus:ring-2 focus:ring-[#ffd2e6]"
             />
             <input
               type="time"
               value={endTime}
               onChange={(event) => setEndTime(event.target.value)}
-              className="w-full rounded-md border border-slate-300 px-3 py-2"
+              className="w-full rounded-md border border-slate-300 bg-slate-50 px-3 py-2 outline-none transition focus:border-[#ff6a3d] focus:ring-2 focus:ring-[#ffd2e6]"
             />
           </div>
 
@@ -224,7 +224,7 @@ export function TimelineEditor({ tripId, days, events }: TimelineEditorProps) {
                 }))
               }
               placeholder={prompt.label}
-              className="w-full rounded-md border border-slate-300 px-3 py-2"
+              className="w-full rounded-md border border-slate-300 bg-slate-50 px-3 py-2 outline-none transition focus:border-[#ff6a3d] focus:ring-2 focus:ring-[#ffd2e6]"
             />
           ))}
 
@@ -232,13 +232,13 @@ export function TimelineEditor({ tripId, days, events }: TimelineEditorProps) {
             value={notes}
             onChange={(event) => setNotes(event.target.value)}
             placeholder="Notes"
-            className="w-full rounded-md border border-slate-300 px-3 py-2"
+            className="w-full rounded-md border border-slate-300 bg-slate-50 px-3 py-2 outline-none transition focus:border-[#ff6a3d] focus:ring-2 focus:ring-[#ffd2e6]"
           />
 
           <button
             type="submit"
             disabled={saving}
-            className="rounded-md bg-slate-900 px-3 py-2 text-sm font-semibold text-white hover:bg-slate-700 disabled:opacity-60"
+            className="rounded-md bg-gradient-to-r from-[#ff6a3d] to-[#ff4f8b] px-3 py-2 text-sm font-semibold text-white shadow-sm transition hover:from-[#ff7b52] hover:to-[#ff62a0] disabled:opacity-60"
           >
             Save event
           </button>
@@ -249,29 +249,29 @@ export function TimelineEditor({ tripId, days, events }: TimelineEditorProps) {
 
       <div className="space-y-3">
         {visibleDays.map((day) => (
-          <article key={day.id} className="rounded-lg border border-slate-200 p-4">
+          <article key={day.id} className="rounded-lg border border-[#ffd2e6] bg-white p-4">
             <h4 className="font-semibold text-slate-900">
               Day {day.day_number} {day.label ? `- ${day.label}` : ""}
             </h4>
             <div className="mt-2 space-y-2">
               {(eventsByDay[day.id] ?? []).map((event) => (
-                <div key={event.id} className="rounded-md bg-slate-50 p-3 text-sm">
+                <div key={event.id} className="rounded-md bg-[#fff1f7] p-3 text-sm">
                   <p className="font-semibold text-slate-900">{event.title}</p>
-                  <p className="text-slate-600">
+                  <p className="text-slate-700">
                     {event.event_type}
                     {event.start_time ? ` • ${event.start_time}` : ""}
                     {event.end_time ? ` - ${event.end_time}` : ""}
                   </p>
                   {Object.keys(event.metadata || {}).length > 0 ? (
-                    <pre className="mt-1 whitespace-pre-wrap text-xs text-slate-600">
+                    <pre className="mt-1 whitespace-pre-wrap text-xs text-slate-700">
                       {JSON.stringify(event.metadata, null, 2)}
                     </pre>
                   ) : null}
-                  {event.notes ? <p className="mt-1 text-slate-700">{event.notes}</p> : null}
+                  {event.notes ? <p className="mt-1 text-slate-800">{event.notes}</p> : null}
                 </div>
               ))}
               {(eventsByDay[day.id] ?? []).length === 0 ? (
-                <p className="text-sm text-slate-500">No events yet.</p>
+                <p className="text-sm text-slate-700">No events yet.</p>
               ) : null}
             </div>
           </article>
