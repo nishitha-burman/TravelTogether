@@ -28,25 +28,46 @@ export default async function PublicTripPage({ params }: { params: Promise<{ slu
 
   const supabase = await createSupabaseServerClient();
 
-  const { data: trip, error: tripError } = await supabase
+  let { data: trip, error: tripError } = await supabase
     .from("itineraries")
-    .select("id, title, destination, theme_image_url, is_public, trip_length_days")
+    .select("id, title, destination, planning_mode, theme_image_url, is_public, trip_length_days")
     .eq("public_slug", slug)
     .eq("is_public", true)
     .single();
+
+  if (tripError && tripError.message.toLowerCase().includes("column")) {
+    const fallback = await supabase
+      .from("itineraries")
+      .select("id, title, destination, theme_image_url, is_public, trip_length_days")
+      .eq("public_slug", slug)
+      .eq("is_public", true)
+      .single();
+    trip = fallback.data ? { ...fallback.data, planning_mode: "days" } : null;
+    tripError = fallback.error;
+  }
 
   if (tripError || !trip) {
     notFound();
   }
 
-  const [{ data: days }, { data: events }, { data: markers }] = await Promise.all([
-    supabase.from("trip_days").select("id, day_number, label").eq("itinerary_id", trip.id).order("day_number"),
+  const [{ data: daysData }, { data: events }, { data: markers }] = await Promise.all([
+    supabase.from("trip_days").select("id, day_number, label, day_date").eq("itinerary_id", trip.id).order("day_number"),
     supabase
       .from("itinerary_events")
       .select("id, day_id, title, event_type, start_time, end_time, notes")
       .eq("itinerary_id", trip.id),
     supabase.from("itinerary_markers").select("id, name, latitude, longitude").eq("itinerary_id", trip.id)
   ]);
+
+  let days = daysData;
+  if (!days) {
+    const fallbackDays = await supabase
+      .from("trip_days")
+      .select("id, day_number, label")
+      .eq("itinerary_id", trip.id)
+      .order("day_number");
+    days = (fallbackDays.data ?? []).map((day) => ({ ...day, day_date: null }));
+  }
 
   return (
     <section className="mx-auto max-w-4xl space-y-6">
@@ -81,7 +102,14 @@ export default async function PublicTripPage({ params }: { params: Promise<{ slu
         {days?.map((day) => (
           <div key={day.id} className="rounded-md border border-[#ffd2e6] bg-white p-4">
             <h3 className="font-semibold text-slate-900">
-              Day {day.day_number} {day.label ? `- ${day.label}` : ""}
+              {trip.planning_mode === "date_range" && day.day_date
+                ? `Day ${day.day_number} - ${new Date(`${day.day_date}T00:00:00Z`).toLocaleDateString(undefined, {
+                    weekday: "short",
+                    month: "short",
+                    day: "numeric",
+                    year: "numeric"
+                  })}${day.label ? ` - ${day.label}` : ""}`
+                : `Day ${day.day_number}${day.label ? ` - ${day.label}` : ""}`}
             </h3>
             <ul className="mt-2 space-y-1 text-sm text-slate-700">
               {events

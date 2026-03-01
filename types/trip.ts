@@ -15,10 +15,14 @@ export type TripRow = {
   id: string;
   owner_id: string;
   title: string;
+  city: string;
   destination: string;
   theme_image_url: string | null;
   is_public: boolean;
   public_slug: string;
+  planning_mode: "days" | "date_range";
+  start_date: string | null;
+  end_date: string | null;
   trip_length_days: number;
   created_at: string;
   updated_at: string;
@@ -29,6 +33,7 @@ export type DayRow = {
   itinerary_id: string;
   day_number: number;
   label: string | null;
+  day_date: string | null;
 };
 
 export type EventRow = {

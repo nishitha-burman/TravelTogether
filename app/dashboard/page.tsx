@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { isSupabaseConfigured } from "@/lib/env";
 import { acceptPendingInvitesByEmail, requireUser } from "@/lib/trips";
+import { DeleteItineraryButton } from "@/lib/components/delete-itinerary-button";
 
 export default async function DashboardPage() {
   if (!isSupabaseConfigured()) {
@@ -26,17 +27,15 @@ export default async function DashboardPage() {
 
         <div className="grid gap-4 md:grid-cols-2">
           {demoTrips.map((trip) => (
-            <Link
-              key={trip.id}
-              href={`/trips/${trip.id}`}
-              className="rounded-xl bg-white/90 p-5 shadow-md ring-1 ring-[#ffd2e6] transition hover:shadow-lg"
-            >
-              <h2 className="text-xl font-semibold text-slate-900">{trip.title}</h2>
-              <p className="text-slate-700">{trip.destination}</p>
-              <p className="mt-2 text-xs font-semibold uppercase tracking-wide text-slate-700">
-                {trip.is_public ? "Public" : "Private"} • Demo data
-              </p>
-            </Link>
+            <article key={trip.id} className="rounded-xl bg-white/90 p-5 shadow-md ring-1 ring-[#ffd2e6] transition hover:shadow-lg">
+              <Link href={`/trips/${trip.id}`} className="block">
+                <h2 className="text-xl font-semibold text-slate-900">{trip.title}</h2>
+                <p className="text-slate-700">{trip.destination}</p>
+                <p className="mt-2 text-xs font-semibold uppercase tracking-wide text-slate-700">
+                  {trip.is_public ? "Public" : "Private"} • Demo data
+                </p>
+              </Link>
+            </article>
           ))}
         </div>
       </section>
@@ -107,17 +106,21 @@ export default async function DashboardPage() {
 
       <div className="grid gap-4 md:grid-cols-2">
         {trips?.map((trip) => (
-          <Link
-            key={trip.id}
-            href={`/trips/${trip.id}`}
-            className="rounded-xl bg-white/90 p-5 shadow-md ring-1 ring-[#ffd2e6] transition hover:shadow-lg"
-          >
-            <h2 className="text-xl font-semibold text-slate-900">{trip.title}</h2>
-            <p className="text-slate-700">{trip.destination}</p>
-            <p className="mt-2 text-xs font-semibold uppercase tracking-wide text-slate-700">
-              {trip.is_public ? "Public" : "Private"} • Updated {new Date(trip.updated_at).toLocaleDateString()}
-            </p>
-          </Link>
+          <article key={trip.id} className="rounded-xl bg-white/90 p-5 shadow-md ring-1 ring-[#ffd2e6] transition hover:shadow-lg">
+            <Link href={`/trips/${trip.id}`} className="block">
+              <h2 className="text-xl font-semibold text-slate-900">{trip.title}</h2>
+              <p className="text-slate-700">{trip.destination}</p>
+              <p className="mt-2 text-xs font-semibold uppercase tracking-wide text-slate-700">
+                {trip.is_public ? "Public" : "Private"} • Updated {new Date(trip.updated_at).toLocaleDateString()}
+              </p>
+            </Link>
+            <div className="mt-4">
+              <DeleteItineraryButton
+                tripId={trip.id}
+                className="rounded-md border border-red-300 px-3 py-2 text-sm font-semibold text-red-700 transition hover:bg-red-50"
+              />
+            </div>
+          </article>
         ))}
       </div>
 

@@ -20,11 +20,14 @@ export function CreateTripForm({ enabled = true }: CreateTripFormProps) {
   const router = useRouter();
 
   const [title, setTitle] = useState("");
-  const [destination, setDestination] = useState("");
+  const [city, setCity] = useState("");
   const [destinationSuggestions, setDestinationSuggestions] = useState<DestinationSuggestion[]>([]);
   const [showDestinationSuggestions, setShowDestinationSuggestions] = useState(false);
   const [destinationLoading, setDestinationLoading] = useState(false);
+  const [planningMode, setPlanningMode] = useState<"days" | "date_range">("days");
   const [tripLengthDays, setTripLengthDays] = useState(5);
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
   const [isPublic, setIsPublic] = useState(false);
   const [themeImageUrl, setThemeImageUrl] = useState("");
   const [themeFile, setThemeFile] = useState<File | null>(null);
@@ -38,7 +41,7 @@ export function CreateTripForm({ enabled = true }: CreateTripFormProps) {
       return;
     }
 
-    const query = destination.trim();
+    const query = city.trim();
     if (query.length < 1) {
       setDestinationSuggestions([]);
       setShowDestinationSuggestions(false);
@@ -77,7 +80,7 @@ export function CreateTripForm({ enabled = true }: CreateTripFormProps) {
     return () => {
       controller.abort();
     };
-  }, [destination]);
+  }, [city]);
 
   async function uploadThemeImageIfNeeded() {
     if (!themeFile) return themeImageUrl || null;
@@ -120,8 +123,11 @@ export function CreateTripForm({ enabled = true }: CreateTripFormProps) {
         headers: await getAuthJsonHeaders(),
         body: JSON.stringify({
           title,
-          destination,
-          tripLengthDays,
+          city,
+          planningMode,
+          tripLengthDays: planningMode === "days" ? tripLengthDays : undefined,
+          startDate: planningMode === "date_range" ? startDate : undefined,
+          endDate: planningMode === "date_range" ? endDate : undefined,
           isPublic,
           themeImageUrl: finalThemeImageUrl
         })
@@ -157,10 +163,10 @@ export function CreateTripForm({ enabled = true }: CreateTripFormProps) {
 
       <div className="relative">
         <label className="block text-sm font-medium text-slate-800">
-          Destination
+          City
           <input
-            value={destination}
-            onChange={(event) => setDestination(event.target.value)}
+            value={city}
+            onChange={(event) => setCity(event.target.value)}
             onFocus={() => {
               if (destinationSuggestions.length > 0) {
                 setShowDestinationSuggestions(true);
@@ -187,7 +193,7 @@ export function CreateTripForm({ enabled = true }: CreateTripFormProps) {
                     onMouseDown={(event) => event.preventDefault()}
                     onClick={() => {
                       skipNextLookupRef.current = true;
-                      setDestination(suggestion.label);
+                      setCity(suggestion.label);
                       setShowDestinationSuggestions(false);
                       setDestinationSuggestions([]);
                     }}
@@ -203,18 +209,69 @@ export function CreateTripForm({ enabled = true }: CreateTripFormProps) {
         {destinationLoading ? <p className="mt-1 text-xs text-slate-700">Looking up destinations...</p> : null}
       </div>
 
-      <label className="block text-sm font-medium text-slate-800">
-        Trip length (days)
-        <input
-          type="number"
-          min={1}
-          max={60}
-          value={tripLengthDays}
-          onChange={(event) => setTripLengthDays(Number(event.target.value))}
-          className="mt-1 w-full rounded-md border border-slate-300 bg-slate-50 px-3 py-2 outline-none transition focus:border-[#ff6a3d] focus:ring-2 focus:ring-[#ffd2e6]"
-          required
-        />
-      </label>
+      <fieldset className="space-y-2">
+        <legend className="text-sm font-medium text-slate-800">Planning mode</legend>
+        <label className="flex items-center gap-2 text-sm text-slate-800">
+          <input
+            type="radio"
+            name="planningMode"
+            value="days"
+            checked={planningMode === "days"}
+            onChange={() => setPlanningMode("days")}
+            className="h-4 w-4 accent-[#ff4f8b]"
+          />
+          Plan by number of days
+        </label>
+        <label className="flex items-center gap-2 text-sm text-slate-800">
+          <input
+            type="radio"
+            name="planningMode"
+            value="date_range"
+            checked={planningMode === "date_range"}
+            onChange={() => setPlanningMode("date_range")}
+            className="h-4 w-4 accent-[#ff4f8b]"
+          />
+          Plan by calendar date range
+        </label>
+      </fieldset>
+
+      {planningMode === "days" ? (
+        <label className="block text-sm font-medium text-slate-800">
+          Trip length (days)
+          <input
+            type="number"
+            min={1}
+            max={60}
+            value={tripLengthDays}
+            onChange={(event) => setTripLengthDays(Number(event.target.value))}
+            className="mt-1 w-full rounded-md border border-slate-300 bg-slate-50 px-3 py-2 outline-none transition focus:border-[#ff6a3d] focus:ring-2 focus:ring-[#ffd2e6]"
+            required
+          />
+        </label>
+      ) : (
+        <div className="grid gap-3 md:grid-cols-2">
+          <label className="block text-sm font-medium text-slate-800">
+            Start date
+            <input
+              type="date"
+              value={startDate}
+              onChange={(event) => setStartDate(event.target.value)}
+              className="mt-1 w-full rounded-md border border-slate-300 bg-slate-50 px-3 py-2 outline-none transition focus:border-[#ff6a3d] focus:ring-2 focus:ring-[#ffd2e6]"
+              required
+            />
+          </label>
+          <label className="block text-sm font-medium text-slate-800">
+            End date
+            <input
+              type="date"
+              value={endDate}
+              onChange={(event) => setEndDate(event.target.value)}
+              className="mt-1 w-full rounded-md border border-slate-300 bg-slate-50 px-3 py-2 outline-none transition focus:border-[#ff6a3d] focus:ring-2 focus:ring-[#ffd2e6]"
+              required
+            />
+          </label>
+        </div>
+      )}
 
       <label className="block text-sm font-medium text-slate-800">
         Theme image URL (optional)

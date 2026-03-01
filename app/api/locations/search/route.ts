@@ -2,12 +2,15 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 
 const querySchema = z.object({
-  q: z.string().trim().min(1).max(120)
+  q: z.string().trim().min(1).max(120),
+  city: z.string().trim().min(1).max(120).optional()
 });
 
 type NominatimResult = {
   place_id: number;
   display_name: string;
+  lat: string;
+  lon: string;
   address?: {
     city?: string;
     town?: string;
@@ -21,14 +24,18 @@ type NominatimResult = {
 
 export async function GET(request: Request) {
   const url = new URL(request.url);
-  const parsed = querySchema.safeParse({ q: url.searchParams.get("q") ?? "" });
+  const parsed = querySchema.safeParse({
+    q: url.searchParams.get("q") ?? "",
+    city: url.searchParams.get("city") ?? undefined
+  });
 
   if (!parsed.success) {
     return NextResponse.json({ suggestions: [] });
   }
 
   const upstreamUrl = new URL("https://nominatim.openstreetmap.org/search");
-  upstreamUrl.searchParams.set("q", parsed.data.q);
+  const scopedQuery = parsed.data.city ? `${parsed.data.q}, ${parsed.data.city}` : parsed.data.q;
+  upstreamUrl.searchParams.set("q", scopedQuery);
   upstreamUrl.searchParams.set("format", "jsonv2");
   upstreamUrl.searchParams.set("addressdetails", "1");
   upstreamUrl.searchParams.set("limit", "6");
@@ -61,16 +68,20 @@ export async function GET(request: Request) {
           "";
         const country = result.address?.country ?? "Unknown country";
         const label = `${location}, ${country}`;
+        const latitude = Number(result.lat);
+        const longitude = Number(result.lon);
 
         return {
           id: String(result.place_id),
           location,
           country,
-          label
+          label,
+          latitude,
+          longitude
         };
       })
       .filter((item) => {
-        if (!item.location || seenLabels.has(item.label)) {
+        if (!item.location || !Number.isFinite(item.latitude) || !Number.isFinite(item.longitude) || seenLabels.has(item.label)) {
           return false;
         }
         seenLabels.add(item.label);

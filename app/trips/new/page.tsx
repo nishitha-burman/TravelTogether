@@ -24,7 +24,8 @@ export default async function NewTripPage() {
         </p>
       ) : null}
       <p className="text-slate-700">
-        Start with destination and length. You can add map markers and timeline events right after creation.
+        Choose city and either number of days or a calendar date range. You can add map markers and timeline events right
+        after creation.
       </p>
       <CreateTripForm enabled={enabled} />
     </section>
