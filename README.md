@@ -1,6 +1,6 @@
-# TripTogether
+# TravelTogether
 
-TripTogether is a Next.js + Supabase app for collaborative travel planning.
+TravelTogether is a Next.js + Supabase app for collaborative travel planning.
 
 ## Core functionality implemented
 - Email/password sign up and login with Supabase Auth

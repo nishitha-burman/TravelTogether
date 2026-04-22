@@ -30,7 +30,7 @@ export default async function HomePage() {
         </p>
         <h1 className="mt-3 max-w-2xl text-4xl font-bold text-slate-900">Build a shared travel plan your whole group can actually use.</h1>
         <p className="mt-4 max-w-xl text-slate-700">
-          TripTogether keeps your destination, map, stays, museums, transit and daily timeline in one living itinerary.
+          TravelTogether keeps your destination, map, stays, museums, transit and daily timeline in one living itinerary.
         </p>
         <div className="mt-6 flex flex-wrap gap-3">
           {data.user ? (

@@ -43,7 +43,7 @@ export async function GET(request: Request) {
   try {
     const response = await fetch(upstreamUrl.toString(), {
       headers: {
-        "User-Agent": "TripTogether/1.0 DestinationAutocomplete",
+        "User-Agent": "TravelTogether/1.0 DestinationAutocomplete",
         "Accept-Language": "en"
       },
       cache: "no-store"

@@ -6,7 +6,7 @@ import { isSupabaseConfigured } from "@/lib/env";
 import { createSupabaseServerClient } from "@/lib/supabase-server";
 
 export const metadata: Metadata = {
-  title: "TripTogether",
+  title: "TravelTogether",
   description: "Collaborative travel itinerary planning with friends"
 };
 
@@ -63,7 +63,7 @@ export default async function RootLayout({
                 color: "transparent"
               }}
             >
-              TripTogether
+              TravelTogether
             </Link>
             <nav className="flex items-center gap-4 text-sm font-medium text-slate-800" style={{ display: "flex", alignItems: "center", gap: 16, fontWeight: 600 }}>
               {data.user ? (
