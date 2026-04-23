@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useState } from "react";
 import { createSupabaseBrowserClient } from "@/lib/supabase-client";
+import { getSiteUrl } from "@/lib/env";
 
 type ForgotPasswordFormProps = {
   enabled?: boolean;
@@ -28,7 +29,7 @@ export function ForgotPasswordForm({ enabled = true }: ForgotPasswordFormProps) 
     try {
       const supabase = createSupabaseBrowserClient();
       const { error: resetError } = await supabase.auth.resetPasswordForEmail(email.trim().toLowerCase(), {
-        redirectTo: `${window.location.origin}/auth/callback?next=/auth/reset-password`
+        redirectTo: `${getSiteUrl()}/auth/callback?next=/auth/reset-password`
       });
 
       if (resetError) {

@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useState } from "react";
 import { createSupabaseBrowserClient } from "@/lib/supabase-client";
+import { getSiteUrl } from "@/lib/env";
 
 type AuthFormProps = {
   mode: "login" | "signup";
@@ -35,7 +36,7 @@ export function AuthForm({ mode, enabled = true }: AuthFormProps) {
           email: normalizedEmail,
           password,
           options: {
-            emailRedirectTo: `${window.location.origin}/dashboard`
+            emailRedirectTo: `${getSiteUrl()}/dashboard`
           }
         });
 
