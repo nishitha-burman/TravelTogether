@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useState } from "react";
 import { createSupabaseBrowserClient } from "@/lib/supabase-client";
 
@@ -88,7 +89,14 @@ export function AuthForm({ mode, enabled = true }: AuthFormProps) {
       </label>
 
       <label className="block text-sm font-medium text-slate-800" style={{ display: "block", color: "#1f2937", fontWeight: 600 }}>
-        Password
+        <span className="flex items-center justify-between gap-3">
+          Password
+          {mode === "login" ? (
+            <Link href="/auth/forgot-password" className="text-xs font-semibold text-[#ff4f8b] hover:underline">
+              Forgot password?
+            </Link>
+          ) : null}
+        </span>
         <input
           className="mt-1 w-full rounded-md border border-slate-300 bg-slate-50 px-3 py-2 outline-none transition focus:border-[#ff6a3d] focus:ring-2 focus:ring-[#ffd2e6]"
           style={{ display: "block", width: "100%", marginTop: 6, borderRadius: 8, border: "1px solid #cbd5e1", backgroundColor: "#f8fafc", padding: "10px 12px" }}

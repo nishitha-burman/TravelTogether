@@ -67,7 +67,7 @@ export default async function RootLayout({
                 TravelTogether
               </Link>
               <span className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-500" style={{ color: "#64748b", fontSize: 11, fontWeight: 700, letterSpacing: "0.24em", textTransform: "uppercase" }}>
-                v1.2
+                v1.3
               </span>
             </div>
             <nav className="flex items-center gap-4 text-sm font-medium text-slate-800" style={{ display: "flex", alignItems: "center", gap: 16, fontWeight: 600 }}>
