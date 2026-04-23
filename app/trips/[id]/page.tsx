@@ -5,7 +5,7 @@ import { isSupabaseConfigured } from "@/lib/env";
 import { requireUser } from "@/lib/trips";
 import { TimelineEditor } from "@/lib/components/timeline-editor";
 import { SharingSettings } from "@/lib/components/sharing-settings";
-import { MapEditor } from "@/lib/components/map-editor";
+import { MapEditor } from "@/lib/components/map-editor-client";
 import { DeleteItineraryButton } from "@/lib/components/delete-itinerary-button";
 
 export default async function TripDetailPage({ params }: { params: Promise<{ id: string }> }) {
