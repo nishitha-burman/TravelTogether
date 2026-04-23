@@ -46,25 +46,30 @@ export default async function RootLayout({
             className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4"
             style={{ maxWidth: 1152, margin: "0 auto", display: "flex", justifyContent: "space-between", alignItems: "center", padding: "14px 24px 20px" }}
           >
-            <Link
-              href="/"
-              className="bg-gradient-to-r from-[#ff6a3d] via-[#ff4f8b] to-[#ffb347] bg-clip-text text-xl font-bold text-transparent"
-              style={{
-                display: "inline-block",
-                fontSize: 34,
-                lineHeight: 1.25,
-                fontWeight: 700,
-                padding: "2px 0 6px",
-                overflow: "visible",
-                textDecoration: "none",
-                backgroundImage: "linear-gradient(90deg, #ff6a3d, #ff4f8b, #ffb347)",
-                WebkitBackgroundClip: "text",
-                backgroundClip: "text",
-                color: "transparent"
-              }}
-            >
-              TravelTogether
-            </Link>
+            <div className="flex flex-col items-start" style={{ display: "flex", flexDirection: "column", alignItems: "flex-start" }}>
+              <Link
+                href="/"
+                className="bg-gradient-to-r from-[#ff6a3d] via-[#ff4f8b] to-[#ffb347] bg-clip-text text-xl font-bold text-transparent"
+                style={{
+                  display: "inline-block",
+                  fontSize: 34,
+                  lineHeight: 1.25,
+                  fontWeight: 700,
+                  padding: "2px 0 2px",
+                  overflow: "visible",
+                  textDecoration: "none",
+                  backgroundImage: "linear-gradient(90deg, #ff6a3d, #ff4f8b, #ffb347)",
+                  WebkitBackgroundClip: "text",
+                  backgroundClip: "text",
+                  color: "transparent"
+                }}
+              >
+                TravelTogether
+              </Link>
+              <span className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-500" style={{ color: "#64748b", fontSize: 11, fontWeight: 700, letterSpacing: "0.24em", textTransform: "uppercase" }}>
+                v1.0
+              </span>
+            </div>
             <nav className="flex items-center gap-4 text-sm font-medium text-slate-800" style={{ display: "flex", alignItems: "center", gap: 16, fontWeight: 600 }}>
               {data.user ? (
                 <>
