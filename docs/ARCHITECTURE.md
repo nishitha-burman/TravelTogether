@@ -6,7 +6,7 @@
 - TypeScript
 - Tailwind CSS
 - Supabase Auth, Postgres, and Storage
-- React Leaflet for map rendering
+- Google Maps iframe embeds for map rendering
 
 ## App Structure
 - `app/layout.tsx`
@@ -70,9 +70,9 @@ Important behavior:
   - supports destination autocomplete
   - supports file upload to Supabase Storage bucket `trip-images`
 - `lib/components/map-editor.tsx`
-  - uses Leaflet and OpenStreetMap tiles
-  - centers on destination lookup or first marker
-  - adds markers through the trip markers API
+  - embeds Google Maps using a destination or selected place query
+  - exposes Google Maps points of interest such as restaurants and shops
+  - adds markers through location search and the trip markers API
 - `lib/components/timeline-editor.tsx`
   - supports full and condensed views
   - supports adding, editing, and deleting days and events

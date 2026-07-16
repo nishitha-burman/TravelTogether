@@ -1,9 +1,6 @@
 "use client";
 
-import "leaflet/dist/leaflet.css";
 import { useEffect, useMemo, useState } from "react";
-import L from "leaflet";
-import { MapContainer, Marker, Popup, TileLayer, useMap, useMapEvents } from "react-leaflet";
 import { getAuthJsonHeaders } from "@/lib/client-api";
 import type { MarkerRow } from "@/types/trip";
 
@@ -18,11 +15,6 @@ type PendingMarker = {
   longitude: number;
 };
 
-type MapView = {
-  center: [number, number];
-  zoom: number;
-};
-
 type GeocodedSuggestion = {
   id: string;
   location: string;
@@ -31,32 +23,6 @@ type GeocodedSuggestion = {
   latitude: number;
   longitude: number;
 };
-
-const defaultIcon = L.icon({
-  iconUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png",
-  shadowUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png",
-  iconAnchor: [12, 41]
-});
-
-function ClickHandler({ onPick }: { onPick: (coords: PendingMarker) => void }) {
-  useMapEvents({
-    click(event) {
-      onPick({ latitude: event.latlng.lat, longitude: event.latlng.lng });
-    }
-  });
-
-  return null;
-}
-
-function MapViewport({ center, zoom }: MapView) {
-  const map = useMap();
-
-  useEffect(() => {
-    map.setView(center, zoom);
-  }, [map, center, zoom]);
-
-  return null;
-}
 
 export function MapEditor({ tripId, markers, destination }: MapEditorProps) {
   const [pending, setPending] = useState<PendingMarker | null>(null);
@@ -68,20 +34,11 @@ export function MapEditor({ tripId, markers, destination }: MapEditorProps) {
   const [description, setDescription] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
-  const [mapView, setMapView] = useState<MapView>(() => {
-    if (markers.length > 0) {
-      return {
-        center: [markers[0].latitude, markers[0].longitude],
-        zoom: 11
-      };
-    }
-
-    return { center: [20, 0], zoom: 2 };
-  });
-
-  const center = useMemo<[number, number]>(() => {
-    return mapView.center;
-  }, [mapView.center]);
+  const [googleMapQuery, setGoogleMapQuery] = useState(destination);
+  const googleMapUrl = useMemo(
+    () => `https://www.google.com/maps?q=${encodeURIComponent(googleMapQuery || destination)}&z=15&output=embed`,
+    [destination, googleMapQuery]
+  );
   const normalizedSearch = searchQuery.trim().toLowerCase();
   const matchedExistingMarkers = useMemo(() => {
     if (!normalizedSearch) return markers;
@@ -90,54 +47,6 @@ export function MapEditor({ tripId, markers, destination }: MapEditorProps) {
       return haystack.includes(normalizedSearch);
     });
   }, [markers, normalizedSearch]);
-  const markerRenderList = normalizedSearch && matchedExistingMarkers.length > 0 ? matchedExistingMarkers : markers;
-
-  useEffect(() => {
-    if (markers.length > 0) {
-      setMapView({
-        center: [markers[0].latitude, markers[0].longitude],
-        zoom: 11
-      });
-    }
-  }, [markers]);
-
-  useEffect(() => {
-    if (markers.length > 0) return;
-    const query = destination.trim();
-    if (!query) return;
-
-    const controller = new AbortController();
-    void (async () => {
-      try {
-        const response = await fetch(`/api/locations/search?q=${encodeURIComponent(query)}&city=${encodeURIComponent(query)}`, {
-          signal: controller.signal
-        });
-        if (!response.ok) return;
-
-        const body = (await response.json()) as { suggestions?: GeocodedSuggestion[] };
-        const firstMatch = body.suggestions?.[0];
-        if (!firstMatch) return;
-
-        setMapView({
-          center: [firstMatch.latitude, firstMatch.longitude],
-          zoom: 10
-        });
-      } catch {
-        // Best effort lookup only.
-      }
-    })();
-
-    return () => {
-      controller.abort();
-    };
-  }, [destination, markers.length]);
-
-  useEffect(() => {
-    if (normalizedSearch.length < 2 || matchedExistingMarkers.length === 0) return;
-    const first = matchedExistingMarkers[0];
-    setMapView({ center: [first.latitude, first.longitude], zoom: 14 });
-  }, [matchedExistingMarkers, normalizedSearch]);
-
   useEffect(() => {
     if (searchQuery.trim().length < 2) return;
     const query = searchQuery.trim();
@@ -146,7 +55,7 @@ export function MapEditor({ tripId, markers, destination }: MapEditorProps) {
       setSearchLoading(true);
       try {
         const cityParam = destination.trim() ? `&city=${encodeURIComponent(destination.trim())}` : "";
-        const response = await fetch(`/api/locations/search?q=${encodeURIComponent(query)}${cityParam}`, {
+        const response = await fetch(`/api/locations/search?q=${encodeURIComponent(query)}${cityParam}&kind=place`, {
           signal: controller.signal
         });
         if (!response.ok) {
@@ -214,32 +123,43 @@ export function MapEditor({ tripId, markers, destination }: MapEditorProps) {
     <section className="space-y-3 rounded-xl bg-white/90 p-5 shadow-md ring-1 ring-[#ffd2e6]">
       <div>
         <h2 className="text-xl font-semibold text-slate-900">Map markers</h2>
-        <p className="text-sm text-slate-700">Search places in this itinerary city or click the map to pick a point.</p>
+        <p className="text-sm text-slate-700">Explore nearby restaurants, shops, and attractions on Google Maps, or search for a place to save.</p>
       </div>
 
-      <div className="h-80 overflow-hidden rounded-lg border border-[#ffd2e6]">
-        <MapContainer center={center} zoom={mapView.zoom} className="h-full w-full">
-          <TileLayer
-            attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-            url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-          />
-          <MapViewport center={mapView.center} zoom={mapView.zoom} />
-          <ClickHandler onPick={setPending} />
-          {markerRenderList.map((marker) => (
-            <Marker key={marker.id} position={[marker.latitude, marker.longitude]} icon={defaultIcon}>
-              <Popup>
-                <p className="font-semibold">{marker.name}</p>
-                {marker.description ? <p>{marker.description}</p> : null}
-              </Popup>
-            </Marker>
-          ))}
-          {pending ? (
-            <Marker position={[pending.latitude, pending.longitude]} icon={defaultIcon}>
-              <Popup>New marker location</Popup>
-            </Marker>
-          ) : null}
-        </MapContainer>
+      <div className="relative h-[26rem] overflow-hidden rounded-2xl border border-slate-200 bg-slate-100 shadow-inner">
+        <iframe
+          key={googleMapUrl}
+          title={`Google Map of ${googleMapQuery || destination}`}
+          aria-label={`Google Map of ${googleMapQuery || destination}`}
+          src={googleMapUrl}
+          loading="lazy"
+          referrerPolicy="no-referrer-when-downgrade"
+          className="absolute inset-0 h-full w-full border-0"
+          allowFullScreen
+        />
       </div>
+
+      {markers.length > 0 ? (
+        <div className="flex flex-wrap gap-2" aria-label="Saved places">
+          <button
+            type="button"
+            onClick={() => setGoogleMapQuery(destination)}
+            className="rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 shadow-sm transition hover:border-[#ff8ab2] hover:bg-[#fff1f7]"
+          >
+            {destination}
+          </button>
+          {markers.map((marker) => (
+            <button
+              key={marker.id}
+              type="button"
+              onClick={() => setGoogleMapQuery(`${marker.name}, ${destination}`)}
+              className="rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 shadow-sm transition hover:border-[#ff8ab2] hover:bg-[#fff1f7]"
+            >
+              📍 {marker.name}
+            </button>
+          ))}
+        </div>
+      ) : null}
 
       <div className="relative">
         <label className="text-sm font-medium text-slate-800">
@@ -274,10 +194,7 @@ export function MapEditor({ tripId, markers, destination }: MapEditorProps) {
                         latitude: suggestion.latitude,
                         longitude: suggestion.longitude
                       });
-                      setMapView({
-                        center: [suggestion.latitude, suggestion.longitude],
-                        zoom: 14
-                      });
+                      setGoogleMapQuery(`${suggestion.label}, ${destination}`);
                       setName(suggestion.location);
                       setShowSearchSuggestions(false);
                       setSearchSuggestions([]);

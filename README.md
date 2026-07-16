@@ -17,7 +17,7 @@ TravelTogether is a Next.js + Supabase app for collaborative travel planning.
   - private/public visibility
 - Private trips shared by invite email
 - Public trips viewable by link (`/public/[slug]`)
-- Interactive map markers (OpenStreetMap + Leaflet)
+- Embedded Google Maps with nearby points of interest and itinerary place search
 - Flexible timeline:
   - day-by-day structure
   - add extra days

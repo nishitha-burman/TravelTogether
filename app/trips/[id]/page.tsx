@@ -42,11 +42,28 @@ export default async function TripDetailPage({ params }: { params: Promise<{ id:
           <p className="mt-2 text-sm text-slate-700">Private/public controls and email invites will activate after Supabase setup.</p>
         </section>
 
-        <section className="rounded-xl bg-white/90 p-5 shadow-md ring-1 ring-[#ffd2e6]">
-          <h2 className="text-xl font-semibold text-slate-900">Map markers</h2>
-          <p className="mt-2 text-sm text-slate-700">Interactive map marker editor is scaffolded and will persist once backend is connected.</p>
-          <div className="mt-3 rounded-md border border-dashed border-[#ffd2e6] p-6 text-sm text-slate-700">Map preview placeholder</div>
-        </section>
+        <MapEditor
+          tripId={id}
+          destination="Lisbon, Portugal"
+          markers={[
+            {
+              id: "demo-belem",
+              itinerary_id: id,
+              name: "Belém Tower",
+              description: "Waterfront landmark",
+              latitude: 38.6916,
+              longitude: -9.216
+            },
+            {
+              id: "demo-alfama",
+              itinerary_id: id,
+              name: "Alfama",
+              description: "Historic neighborhood",
+              latitude: 38.711,
+              longitude: -9.1294
+            }
+          ]}
+        />
 
         <section className="rounded-xl bg-white/90 p-5 shadow-md ring-1 ring-[#ffd2e6]">
           <h2 className="text-xl font-semibold text-slate-900">Timeline</h2>
