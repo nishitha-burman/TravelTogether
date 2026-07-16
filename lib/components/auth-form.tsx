@@ -17,6 +17,14 @@ export function AuthForm({ mode, enabled = true }: AuthFormProps) {
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
 
+  function getAuthOrigin() {
+    if (typeof window !== "undefined" && window.location.origin) {
+      return window.location.origin;
+    }
+
+    return getSiteUrl();
+  }
+
   async function onSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!enabled) {
@@ -36,7 +44,7 @@ export function AuthForm({ mode, enabled = true }: AuthFormProps) {
           email: normalizedEmail,
           password,
           options: {
-            emailRedirectTo: `${getSiteUrl()}/dashboard`
+            emailRedirectTo: `${getAuthOrigin()}/dashboard`
           }
         });
 

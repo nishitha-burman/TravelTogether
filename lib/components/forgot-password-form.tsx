@@ -15,6 +15,14 @@ export function ForgotPasswordForm({ enabled = true }: ForgotPasswordFormProps) 
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
 
+  function getAuthOrigin() {
+    if (typeof window !== "undefined" && window.location.origin) {
+      return window.location.origin;
+    }
+
+    return getSiteUrl();
+  }
+
   async function onSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!enabled) {
@@ -29,7 +37,7 @@ export function ForgotPasswordForm({ enabled = true }: ForgotPasswordFormProps) 
     try {
       const supabase = createSupabaseBrowserClient();
       const { error: resetError } = await supabase.auth.resetPasswordForEmail(email.trim().toLowerCase(), {
-        redirectTo: `${getSiteUrl()}/auth/callback?next=/auth/reset-password`
+        redirectTo: `${getAuthOrigin()}/auth/callback?next=/auth/reset-password`
       });
 
       if (resetError) {
