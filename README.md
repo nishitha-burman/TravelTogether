@@ -2,6 +2,11 @@
 
 TravelTogether is a Next.js + Supabase app for collaborative travel planning.
 
+## Agent context docs
+- `AGENTS.md` - starting point for AI coding agents
+- `docs/PRODUCT_CONTEXT.md` - product goals, user journeys, limitations
+- `docs/ARCHITECTURE.md` - codebase structure, data model, auth and implementation notes
+
 ## Core functionality implemented
 - Email/password sign up and login with Supabase Auth
 - Auth-protected dashboard with shared/private trip access
