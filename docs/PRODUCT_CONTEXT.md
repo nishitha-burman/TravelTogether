@@ -14,6 +14,7 @@ TravelTogether is a collaborative itinerary planning app for small groups travel
 - Invite specific people by email for private trips.
 - Add map markers for places worth saving.
 - Build a day-by-day timeline with categorized events.
+- Download a dated trip timeline as an `.ics` calendar file.
 
 ## Current Product Behavior
 - Auth is powered by Supabase Auth.
@@ -22,6 +23,8 @@ TravelTogether is a collaborative itinerary planning app for small groups travel
 - Public sharing uses `/public/[slug]`.
 - Timeline events support typed metadata for different event kinds such as `stay`, `museum`, `travel`, `food`, `activity`, and `custom`.
 - Destination lookup and map search use the app's location search API.
+- Owners and accepted members with read access can download date-range trip timelines as `.ics` files from `/trips/[id]`.
+- Calendar exports include event titles, dates, times, locations, notes, event categories, and booking links. Confirmation codes and ticket references are intentionally excluded.
 
 ## Current Limitations
 - Collaboration is only partially implemented:
@@ -30,6 +33,9 @@ TravelTogether is a collaborative itinerary planning app for small groups travel
 - Several client interactions still use full-page reloads after mutations.
 - Schema compatibility fallbacks remain in place for older deployments.
 - There is no real-time sync, conflict resolution, or change history yet.
+- Calendar export currently requires every exported event to belong to a day with `day_date`; day-count trips cannot yet choose an export start date.
+- Calendar times are emitted as floating local times because trips do not yet store an explicit timezone.
+- Calendar export is currently a one-time `.ics` download from the authenticated trip page. Public-page export, individual-event export, subscriptions, and direct Google Calendar synchronization are not implemented.
 
 ## UX Direction
 - The app leans warm, bright, and travel-editorial rather than enterprise dashboard.
@@ -38,7 +44,9 @@ TravelTogether is a collaborative itinerary planning app for small groups travel
 
 ## Planned or Natural Next Steps
 - True collaborator editing permissions
-- Calendar export
+- Explicit trip timezone and richer overnight/multi-timezone event modeling
+- Public and individual-event calendar export
+- Direct Google Calendar connection and synchronized updates
 - Better mutation UX with optimistic updates
 - Photo workflows and moderation
 - Real-time collaboration and revision history

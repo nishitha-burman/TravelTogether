@@ -6,6 +6,8 @@ TravelTogether is a Next.js + Supabase app for collaborative travel planning.
 - `AGENTS.md` - starting point for AI coding agents
 - `docs/PRODUCT_CONTEXT.md` - product goals, user journeys, limitations
 - `docs/ARCHITECTURE.md` - codebase structure, data model, auth and implementation notes
+- `docs/PRODUCT_BACKLOG.md` - prioritized product roadmap and acceptance criteria
+- `docs/ENGINEERING_BACKLOG.md` - implementation and infrastructure backlog
 
 ## Core functionality implemented
 - Email/password sign up and login with Supabase Auth
@@ -24,6 +26,11 @@ TravelTogether is a Next.js + Supabase app for collaborative travel planning.
   - event types (`stay`, `museum`, `travel`, `food`, `activity`, `custom`)
   - event-type custom fields (stored as JSON metadata)
   - full vs condensed trip length views
+- Portable calendar export for date-range trips:
+  - downloads the full timeline as an `.ics` file
+  - supports timed and all-day events, locations, notes, and booking links
+  - uses the portable iCalendar format supported by Google Calendar, Apple Calendar, Outlook, and other calendar apps
+  - excludes confirmation codes and ticket references
 
 ## Stack
 - Next.js App Router (TypeScript)
@@ -42,8 +49,9 @@ TravelTogether is a Next.js + Supabase app for collaborative travel planning.
    cp .env.example .env.local
    ```
 4. Fill in Supabase values in `.env.local`
-5. Run DB migration in Supabase SQL editor:
+5. Run the Supabase migrations in filename order:
    - `supabase/migrations/001_init_triptogether.sql`
+   - `supabase/migrations/002_itinerary_planning_and_editing.sql`
 6. Start dev server:
    ```bash
    npm run dev
@@ -82,8 +90,10 @@ TravelTogether is a Next.js + Supabase app for collaborative travel planning.
 - RLS policies are included for all core tables.
 
 ## Future phases (planned)
-- Google Calendar export for itinerary events
-- Apple Calendar export (`.ics`)
+- Direct Google Calendar connection and automatic event updates
+- Public-page and individual-event calendar exports
+- Explicit trip timezone and overnight/multi-timezone event modeling
+- Subscribe-to-calendar feeds with automatic updates
 - Photo uploads with per-user/per-trip limits and moderation workflow
 - Better real-time collaboration and change history
 
@@ -97,5 +107,13 @@ TravelTogether is a Next.js + Supabase app for collaborative travel planning.
 4. Deploy.
 5. In Supabase Auth settings, add your Vercel URL to redirect URLs.
 
-## Current constraints in this workspace
-Node.js/npm are not installed in this environment, so install/build/test commands were not executed here.
+## Verification
+
+Before finishing a change, run:
+
+```bash
+npm run typecheck
+npm run build
+```
+
+The repository does not currently have an automated test suite. The calendar export implementation was verified with both commands above.

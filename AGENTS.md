@@ -34,5 +34,7 @@ TravelTogether is a collaborative travel itinerary planner built with Next.js an
 ## Good Next Areas
 - Real collaborator editing instead of owner-only writes
 - Better optimistic UI instead of `window.location.reload()`
-- Calendar export
+- Trip timezone plus overnight/multi-timezone event modeling
+- Public and individual-event calendar export
+- Direct Google Calendar connection and synchronized updates
 - Real-time collaboration and change history

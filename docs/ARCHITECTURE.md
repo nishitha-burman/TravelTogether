@@ -24,9 +24,16 @@
 - `app/public/[slug]/page.tsx`
   - public read-only trip page
 - `app/api/**`
-  - mutation and helper APIs for trips, days, events, markers, settings, members, auth, and location search
+  - mutation and helper APIs for trips, days, events, markers, settings, members, auth, location search, and calendar export
+- `app/api/trips/[id]/calendar/route.ts`
+  - authenticated read route that generates a downloadable `.ics` file
+  - relies on Supabase RLS so owners and accepted members with trip read access can export
+  - returns `422` when the timeline is empty, an event day has no date, or the legacy schema lacks `day_date`
 - `lib/components/**`
   - client components for forms and editors
+- `lib/calendar/ics.ts`
+  - pure iCalendar serialization and filename helpers
+  - escapes text, folds long UTF-8 lines, assigns stable event UIDs, and maps timed/all-day events
 - `lib/**`
   - auth helpers, Supabase client setup, trip access helpers
 - `supabase/migrations/**`
@@ -80,6 +87,33 @@ Important behavior:
 - `lib/components/sharing-settings.tsx`
   - toggles public/private status
   - creates private email invites
+- `lib/components/calendar-export.tsx`
+  - renders the trip-level `.ics` download action
+  - explains empty-timeline, undated-trip, and scaffold-mode limitations
+
+## Calendar Export
+
+Calendar export is a one-time, server-generated `.ics` download:
+
+- Route: `GET /api/trips/[id]/calendar`
+- Content type: `text/calendar; charset=utf-8`
+- Cache policy: `private, no-store`
+- Access: authenticated users who can read the trip through existing RLS
+- Availability: timelines with at least one event where every event's `trip_days` row has `day_date`
+
+Event mapping:
+
+- `title` → `SUMMARY`
+- `day_date` plus `start_time`/`end_time` → `DTSTART`/`DTEND`
+- no `start_time` → one-day all-day event
+- `start_time` without `end_time` → one-hour duration
+- an end time not later than the start time → following day
+- `metadata.location` → `LOCATION`
+- `notes` and `metadata.bookingUrl` → `DESCRIPTION`
+- event type → `CATEGORIES`
+- TravelTogether event ID → stable iCalendar `UID`
+
+The serializer deliberately omits confirmation codes, ticket references, transport details, and other unapproved metadata. Times are floating local date-times because the current schema has no trip timezone. Direct Google Calendar OAuth/API integration, calendar subscriptions, public export, and two-way synchronization are separate future features.
 
 ## Compatibility Patterns
 The code intentionally contains fallback logic for older schemas. Examples:
@@ -93,6 +127,7 @@ Do not remove these fallbacks casually unless the deployment strategy has been u
 When Supabase env vars are missing:
 - pages still render with demo or placeholder data
 - auth and persistence are intentionally disabled
+- calendar export renders a disabled action with an explanatory message
 - this is used for frontend iteration without a live backend
 
 Any feature work should preserve this mode unless the team explicitly decides to remove it.
