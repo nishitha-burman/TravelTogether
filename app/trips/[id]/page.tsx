@@ -7,6 +7,7 @@ import { TimelineEditor } from "@/lib/components/timeline-editor";
 import { SharingSettings } from "@/lib/components/sharing-settings";
 import { MapEditor } from "@/lib/components/map-editor-client";
 import { DeleteItineraryButton } from "@/lib/components/delete-itinerary-button";
+import { CalendarExport } from "@/lib/components/calendar-export";
 
 export default async function TripDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -74,6 +75,8 @@ export default async function TripDetailPage({ params }: { params: Promise<{ id:
             <p>Day 3 - Intercity travel</p>
           </div>
         </section>
+
+        <CalendarExport tripId={id} eventCount={0} hasUndatedEvents scaffold />
       </section>
     );
   }
@@ -134,6 +137,9 @@ export default async function TripDetailPage({ params }: { params: Promise<{ id:
     days = (fallbackDays.data ?? []).map((day) => ({ ...day, day_date: null }));
   }
 
+  const datesByDayId = new Map((days ?? []).map((day) => [day.id, day.day_date]));
+  const hasUndatedEvents = (events ?? []).some((event) => !datesByDayId.get(event.day_id));
+
   return (
     <section className="space-y-6">
       <div className="overflow-hidden rounded-2xl bg-white/90 shadow-md ring-1 ring-[#ffd2e6]">
@@ -176,12 +182,17 @@ export default async function TripDetailPage({ params }: { params: Promise<{ id:
         events={events ?? []}
         planningMode={trip.planning_mode ?? "days"}
       />
+      <CalendarExport
+        tripId={trip.id}
+        eventCount={(events ?? []).length}
+        hasUndatedEvents={hasUndatedEvents}
+      />
 
       <section className="rounded-xl bg-white/90 p-5 shadow-md ring-1 ring-[#ffd2e6]">
         <h2 className="text-lg font-semibold text-slate-900">Planned for later phases</h2>
         <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-slate-700">
-          <li>Google Calendar export from timeline events.</li>
-          <li>Apple Calendar export (ICS feed/file).</li>
+          <li>Direct Google Calendar sync with automatic updates.</li>
+          <li>Subscribe-to-calendar feeds with automatic updates.</li>
           <li>Photo uploads with per-trip and per-user limits.</li>
           <li>Automated conflict checks for overlapping transport/stays.</li>
         </ul>
