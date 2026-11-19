@@ -1,134 +1,145 @@
 import Link from "next/link";
 import { isSupabaseConfigured } from "@/lib/env";
 import { acceptPendingInvitesByEmail, requireUser } from "@/lib/trips";
-import { DeleteItineraryButton } from "@/lib/components/delete-itinerary-button";
-
+import { demoTrip } from "@/lib/demo";
+import { readTrips, readTimeline } from "@/lib/server/trip-data";
+import { calendarReadiness } from "@/lib/calendar/readiness";
+import { dateLabel } from "@/lib/calendar/time";
+import type { TripRole } from "@/lib/permissions";
+import type { TripRow, DayRow, EventRow } from "@/types/trip";
 export default async function DashboardPage() {
-  if (!isSupabaseConfigured()) {
-    const demoTrips = [
-      { id: "demo-lisbon", title: "Lisbon Food Crawl", destination: "Lisbon, Portugal", is_public: false },
-      { id: "demo-kyoto", title: "Kyoto Culture Week", destination: "Kyoto, Japan", is_public: true }
+  const scaffold = !isSupabaseConfigured();
+  let warning: string | null = null;
+  let plans: { trip: TripRow; days: DayRow[]; events: EventRow[]; role: TripRole }[] = [];
+  if (scaffold)
+    plans = [
+      { ...demoTrip(), role: "owner" },
+      { ...demoTrip("demo-kyoto"), role: "editor" },
     ];
-
-    return (
-      <section className="space-y-6">
-        <div className="rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-          Scaffold mode enabled. Supabase is not configured, so this dashboard is using mock data.
-        </div>
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-bold text-[#ff4f8b]">Your itineraries</h1>
-            <p className="text-slate-700">Create, share and iterate with your group.</p>
-          </div>
-          <Link href="/trips/new" className="rounded-md bg-gradient-to-r from-[#ff6a3d] to-[#ff4f8b] px-4 py-2 font-semibold text-white shadow-sm transition hover:from-[#ff7b52] hover:to-[#ff62a0]">
-            New itinerary
-          </Link>
-        </div>
-
-        <div className="grid gap-4 md:grid-cols-2">
-          {demoTrips.map((trip) => (
-            <article key={trip.id} className="rounded-xl bg-white/90 p-5 shadow-md ring-1 ring-[#ffd2e6] transition hover:shadow-lg">
-              <Link href={`/trips/${trip.id}`} className="block">
-                <h2 className="text-xl font-semibold text-slate-900">{trip.title}</h2>
-                <p className="text-slate-700">{trip.destination}</p>
-                <p className="mt-2 text-xs font-semibold uppercase tracking-wide text-slate-700">
-                  {trip.is_public ? "Public" : "Private"} • Demo data
-                </p>
-              </Link>
-            </article>
-          ))}
-        </div>
-      </section>
+  else {
+    const { supabase, user } = await requireUser();
+    warning = await acceptPendingInvitesByEmail();
+    const [owned, members] = await Promise.all([
+      supabase.from("itineraries").select("id").eq("owner_id", user.id),
+      supabase.from("itinerary_members").select("itinerary_id,role").eq("user_id", user.id),
+    ]);
+    if (owned.error || members.error) throw new Error("Could not load your trips. Please retry.");
+    const ids = Array.from(
+      new Set([...(owned.data ?? []).map((t) => t.id), ...(members.data ?? []).map((t) => t.itinerary_id)]),
     );
+    if (ids.length) {
+      const [trips, { days, events }] = await Promise.all([
+        readTrips(supabase, ids),
+        readTimeline(supabase, ids),
+      ]);
+      plans = trips.map((trip) => ({
+        trip,
+        days: days.filter((d) => d.itinerary_id === trip.id),
+        events: events.filter((e) => e.itinerary_id === trip.id),
+        role:
+          trip.owner_id === user.id
+            ? "owner"
+            : members.data?.find((m) => m.itinerary_id === trip.id)?.role === "editor"
+              ? "editor"
+              : "viewer",
+      }));
+    }
   }
-
-  const { supabase, user } = await requireUser();
-
-  if (user.email) {
-    await acceptPendingInvitesByEmail(user.email);
-  }
-
-  const [{ data: ownedTrips, error: ownedError }, { data: memberRows, error: memberError }] = await Promise.all([
-    supabase
-      .from("itineraries")
-      .select("id, title, destination, is_public, updated_at")
-      .eq("owner_id", user.id)
-      .order("updated_at", { ascending: false }),
-    supabase.from("itinerary_members").select("itinerary_id").eq("user_id", user.id)
-  ]);
-
-  const memberTripIds = (memberRows ?? []).map((row) => row.itinerary_id);
-  const { data: memberTrips, error: memberTripsError } =
-    memberTripIds.length === 0
-      ? { data: [], error: null }
-      : await supabase
-          .from("itineraries")
-          .select("id, title, destination, is_public, updated_at")
-          .in("id", memberTripIds);
-
-  const tripsMap = new Map<
-    string,
-    { id: string; title: string; destination: string; is_public: boolean; updated_at: string }
-  >();
-  for (const trip of [...(ownedTrips ?? []), ...(memberTrips ?? [])]) {
-    tripsMap.set(trip.id, trip);
-  }
-
-  const trips = Array.from(tripsMap.values()).sort(
-    (a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime()
-  );
-  const error = ownedError ?? memberError ?? memberTripsError;
-  const errorMessage = error?.message ?? null;
-  const missingSchema = errorMessage
-    ? errorMessage.includes("Could not find the table 'public.itineraries'") ||
-      errorMessage.includes('relation "public.itineraries" does not exist')
-    : false;
-
+  plans.sort((a, b) => b.trip.updated_at.localeCompare(a.trip.updated_at));
+  const today = new Date().toISOString().slice(0, 10);
+  const groups = [
+    {
+      title: "Coming up",
+      items: plans.filter((p) => p.trip.start_date && (!p.trip.end_date || p.trip.end_date >= today)),
+    },
+    { title: "Dates open", items: plans.filter((p) => !p.trip.start_date) },
+    {
+      title: "Past trips",
+      items: plans.filter((p) => p.trip.start_date && p.trip.end_date && p.trip.end_date < today),
+    },
+  ];
   return (
-    <section className="space-y-6">
-      <div className="flex items-center justify-between">
+    <div className="space-y-9">
+      <header className="flex flex-wrap items-end justify-between gap-5">
         <div>
-          <h1 className="text-3xl font-bold text-[#ff4f8b]">Your itineraries</h1>
-          <p className="text-slate-700">Create, share and iterate with your group.</p>
+          <p className="eyebrow">The days ahead</p>
+          <h1 className="page-title mt-2">Your trips</h1>
+          <p className="mt-3 text-sm muted">Pick up a plan, or start with somewhere you’d like to go.</p>
         </div>
-        <Link href="/trips/new" className="rounded-md bg-gradient-to-r from-[#ff6a3d] to-[#ff4f8b] px-4 py-2 font-semibold text-white shadow-sm transition hover:from-[#ff7b52] hover:to-[#ff62a0]">
-          New itinerary
+        <Link href="/trips/new" className="button">
+          New trip
         </Link>
-      </div>
-
-      {error ? <p className="text-red-600">Failed to load trips: {error.message}</p> : null}
-      {missingSchema ? (
-        <div className="rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-          Database setup is incomplete for this Supabase project. Run <code>supabase/migrations/001_init_triptogether.sql</code>{" "}
-          in the Supabase SQL Editor, then refresh this page.
-        </div>
+      </header>
+      {scaffold ? (
+        <p className="text-sm muted">Sample trips · Explore planning, editing and calendar readiness.</p>
       ) : null}
-
-      <div className="grid gap-4 md:grid-cols-2">
-        {trips?.map((trip) => (
-          <article key={trip.id} className="rounded-xl bg-white/90 p-5 shadow-md ring-1 ring-[#ffd2e6] transition hover:shadow-lg">
-            <Link href={`/trips/${trip.id}`} className="block">
-              <h2 className="text-xl font-semibold text-slate-900">{trip.title}</h2>
-              <p className="text-slate-700">{trip.destination}</p>
-              <p className="mt-2 text-xs font-semibold uppercase tracking-wide text-slate-700">
-                {trip.is_public ? "Public" : "Private"} • Updated {new Date(trip.updated_at).toLocaleDateString()}
-              </p>
-            </Link>
-            <div className="mt-4">
-              <DeleteItineraryButton
-                tripId={trip.id}
-                className="rounded-md border border-red-300 px-3 py-2 text-sm font-semibold text-red-700 transition hover:bg-red-50"
-              />
+      {warning ? (
+        <p role="alert" className="error">
+          {warning}
+        </p>
+      ) : null}
+      {groups
+        .filter((g) => g.items.length)
+        .map((group) => (
+          <section key={group.title}>
+            <h2 className="eyebrow mb-4">{group.title}</h2>
+            <div className="grid gap-5 md:grid-cols-2">
+              {group.items.map(({ trip, days, events, role }) => {
+                const ready = calendarReadiness(trip.timezone, days, events);
+                return (
+                  <article key={trip.id} className="border-t border-[var(--line)] py-5">
+                    <p className="text-xs muted">
+                      {trip.destination} ·{" "}
+                      {role === "owner" ? "Owner" : role === "editor" ? "Can edit" : "View only"}
+                    </p>
+                    <h3 className="mt-2 font-serif text-2xl">
+                      <Link
+                        href={`/trips/${trip.id}${scaffold ? `?role=${role}` : ""}`}
+                        className="hover:underline"
+                      >
+                        {trip.title}
+                      </Link>
+                    </h3>
+                    <p className="mt-2 text-sm">
+                      {dateLabel(trip.start_date)} · {days.length} days
+                    </p>
+                    <p className="mt-3 text-sm muted">
+                      {ready.ready
+                        ? `${events.length} events ready for your calendar`
+                        : !events.length
+                          ? "Add the first event"
+                          : !trip.start_date
+                            ? "Choose dates when you’re ready"
+                            : !trip.timezone
+                              ? "Choose a timezone for your calendar"
+                              : "Review calendar details"}
+                    </p>
+                    <div className="mt-4 flex flex-wrap items-center justify-between gap-2">
+                      <Link
+                        href={`/trips/${trip.id}${scaffold ? `?role=${role}` : ""}`}
+                        className="text-sm font-semibold underline underline-offset-4"
+                      >
+                        {role === "viewer" ? "View itinerary" : "Continue planning"} →
+                      </Link>
+                      <p className="text-xs muted">Updated {dateLabel(trip.updated_at.slice(0, 10))}</p>
+                    </div>
+                  </article>
+                );
+              })}
             </div>
-          </article>
+          </section>
         ))}
-      </div>
-
-      {trips?.length === 0 ? (
-        <div className="rounded-xl bg-white/90 p-6 text-slate-700 shadow-md ring-1 ring-[#ffd2e6]">
-          No trips yet. Start with destination, image, map markers and day timeline.
-        </div>
+      {!plans.length ? (
+        <section className="border-t border-[var(--line)] py-10">
+          <h2 className="font-serif text-2xl">Where would you like to go?</h2>
+          <p className="mt-3 max-w-md muted">
+            Start with a destination and a few days. You can decide the dates and invite your travelers later.
+          </p>
+          <Link href="/trips/new" className="button mt-5">
+            Plan your first trip
+          </Link>
+        </section>
       ) : null}
-    </section>
+    </div>
   );
 }

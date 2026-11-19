@@ -1,129 +1,152 @@
-import Image from "next/image";
 import { notFound } from "next/navigation";
 import { isSupabaseConfigured } from "@/lib/env";
 import { createSupabaseServerClient } from "@/lib/supabase-server";
-
-export default async function PublicTripPage({ params }: { params: Promise<{ slug: string }> }) {
+import { demoTrip, honoluluPreviewNote } from "@/lib/demo";
+import { TripHeading } from "@/lib/components/trip-heading";
+import { dateLabel } from "@/lib/calendar/time";
+import type { DayRow, EventRow, MarkerRow, TripRow } from "@/types/trip";
+// Public data is deliberately a separate domain projection; no private EventRow is fetched.
+type PublicPlan = {
+  trip: Pick<
+    TripRow,
+    | "id"
+    | "title"
+    | "destination"
+    | "theme_image_url"
+    | "trip_length_days"
+    | "start_date"
+    | "end_date"
+    | "timezone"
+  >;
+  days: Pick<DayRow, "id" | "day_number" | "label" | "day_date">[];
+  events: Pick<
+    EventRow,
+    "id" | "day_id" | "title" | "event_type" | "start_time" | "end_time"
+  >[];
+  markers: Pick<MarkerRow, "id" | "name" | "latitude" | "longitude">[];
+};
+export const dynamic = "force-dynamic";
+export default async function PublicTripPage({
+  params,
+}: {
+  params: Promise<{ slug: string }>;
+}) {
   const { slug } = await params;
-
-  if (!isSupabaseConfigured()) {
-    return (
-      <section className="mx-auto max-w-4xl space-y-6">
-        <article className="rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-          Scaffold mode enabled. Public trip pages are shown using demo data until Supabase is configured.
-        </article>
-        <article className="overflow-hidden rounded-2xl bg-white/90 shadow-md ring-1 ring-[#ffd2e6]">
-          <div className="relative h-64 w-full">
-            <Image src="https://images.unsplash.com/photo-1503220317375-aaad61436b1b?q=80&w=1600&auto=format&fit=crop" alt="Public itinerary" fill className="object-cover" />
-          </div>
-          <div className="p-6">
-            <p className="text-sm font-semibold uppercase tracking-wider text-[#ff5f97]">Public itinerary</p>
-            <h1 className="mt-2 text-3xl font-bold text-slate-900">Demo Shared Trip ({slug})</h1>
-            <p className="text-slate-700">Barcelona, Spain • 4 days</p>
-          </div>
-        </article>
-      </section>
-    );
-  }
-
-  const supabase = await createSupabaseServerClient();
-
-  let { data: trip, error: tripError } = await supabase
-    .from("itineraries")
-    .select("id, title, destination, planning_mode, theme_image_url, is_public, trip_length_days")
-    .eq("public_slug", slug)
-    .eq("is_public", true)
-    .single();
-
-  if (tripError && tripError.message.toLowerCase().includes("column")) {
-    const fallback = await supabase
-      .from("itineraries")
-      .select("id, title, destination, theme_image_url, is_public, trip_length_days")
-      .eq("public_slug", slug)
-      .eq("is_public", true)
-      .single();
-    trip = fallback.data ? { ...fallback.data, planning_mode: "days" } : null;
-    tripError = fallback.error;
-  }
-
-  if (tripError || !trip) {
-    notFound();
-  }
-
-  const [{ data: daysData }, { data: events }, { data: markers }] = await Promise.all([
-    supabase.from("trip_days").select("id, day_number, label, day_date").eq("itinerary_id", trip.id).order("day_number"),
-    supabase
-      .from("itinerary_events")
-      .select("id, day_id, title, event_type, start_time, end_time, notes")
-      .eq("itinerary_id", trip.id),
-    supabase.from("itinerary_markers").select("id, name, latitude, longitude").eq("itinerary_id", trip.id)
-  ]);
-
-  let days = daysData;
-  if (!days) {
-    const fallbackDays = await supabase
-      .from("trip_days")
-      .select("id, day_number, label")
-      .eq("itinerary_id", trip.id)
-      .order("day_number");
-    days = (fallbackDays.data ?? []).map((day) => ({ ...day, day_date: null }));
-  }
-
-  return (
-    <section className="mx-auto max-w-4xl space-y-6">
-      <article className="overflow-hidden rounded-2xl bg-white/90 shadow-md ring-1 ring-[#ffd2e6]">
-        {trip.theme_image_url ? (
-          <div className="relative h-64 w-full">
-            <Image src={trip.theme_image_url} alt={trip.title} fill className="object-cover" />
-          </div>
-        ) : null}
-        <div className="p-6">
-          <p className="text-sm font-semibold uppercase tracking-wider text-[#ff5f97]">Public itinerary</p>
-          <h1 className="mt-2 text-3xl font-bold text-slate-900">{trip.title}</h1>
-          <p className="text-slate-700">
-            {trip.destination} • {trip.trip_length_days} days
+  const scaffold = !isSupabaseConfigured();
+  let plan: PublicPlan;
+  if (scaffold) plan = demoTrip();
+  else {
+    const supabase = await createSupabaseServerClient();
+    const { data, error } = await supabase.rpc("get_public_itinerary", {
+      share_slug: slug,
+    });
+    // Never fall back to raw tables, even on a legacy deployment or for a signed-in owner.
+    if (error)
+      return (
+        <section className="panel space-y-3">
+          <h1 className="page-title">
+            This shared itinerary is temporarily unavailable
+          </h1>
+          <p className="muted">
+            Please try again later or ask the trip owner for help.
           </p>
-        </div>
-      </article>
-
-      <article className="rounded-xl bg-white/90 p-5 shadow-md ring-1 ring-[#ffd2e6]">
-        <h2 className="text-xl font-semibold text-slate-900">Markers ({markers?.length ?? 0})</h2>
-        <ul className="mt-2 space-y-1 text-sm text-slate-700">
-          {markers?.map((marker) => (
-            <li key={marker.id}>
-              {marker.name}: {marker.latitude.toFixed(4)}, {marker.longitude.toFixed(4)}
-            </li>
-          ))}
-        </ul>
-      </article>
-
-      <article className="space-y-3 rounded-xl bg-white/90 p-5 shadow-md ring-1 ring-[#ffd2e6]">
-        <h2 className="text-xl font-semibold text-slate-900">Timeline</h2>
-        {days?.map((day) => (
-          <div key={day.id} className="rounded-md border border-[#ffd2e6] bg-white p-4">
-            <h3 className="font-semibold text-slate-900">
-              {trip.planning_mode === "date_range" && day.day_date
-                ? `Day ${day.day_number} - ${new Date(`${day.day_date}T00:00:00Z`).toLocaleDateString(undefined, {
-                    weekday: "short",
-                    month: "short",
-                    day: "numeric",
-                    year: "numeric"
-                  })}${day.label ? ` - ${day.label}` : ""}`
-                : `Day ${day.day_number}${day.label ? ` - ${day.label}` : ""}`}
+        </section>
+      );
+    if (!data) notFound();
+    plan = data as PublicPlan;
+  }
+  const { trip, days, events, markers } = plan;
+  return (
+    <div className="mx-auto max-w-4xl space-y-8">
+      {scaffold ? (
+        <p className="text-xs muted">Sample public itinerary</p>
+      ) : null}
+      <TripHeading
+        title={trip.title}
+        destination={trip.destination}
+        image={trip.theme_image_url}
+        days={days.length}
+        startDate={trip.start_date}
+        endDate={trip.end_date}
+        timezone={trip.timezone ?? null}
+        role="Public itinerary · Read only"
+        publicView
+      />
+      {scaffold ? <p className="text-sm muted">{honoluluPreviewNote}</p> : null}
+      <p className="border-y border-[var(--line)] py-4 text-sm muted">
+        A shared view of the plan. Traveler identities, group notes and booking
+        details are private.
+      </p>
+      <section className="space-y-7" aria-labelledby="public-itinerary">
+        <h2 id="public-itinerary" className="section-heading">
+          The itinerary
+        </h2>
+        {days.map((day) => (
+          <article className="border-t border-[var(--line)] pt-5" key={day.id}>
+            <p className="eyebrow">
+              Day {day.day_number}
+              {day.day_date ? ` / ${dateLabel(day.day_date)}` : ""}
+            </p>
+            <h3 className="mt-1 font-serif text-2xl">
+              {day.label || "An open day"}
             </h3>
-            <ul className="mt-2 space-y-1 text-sm text-slate-700">
+            <ul className="mt-4 divide-y divide-[var(--line)]">
               {events
-                ?.filter((event) => event.day_id === day.id)
-                .map((event) => (
-                  <li key={event.id}>
-                    {event.title} ({event.event_type})
-                    {event.start_time ? ` at ${event.start_time}` : ""}
+                .filter((e) => e.day_id === day.id)
+                .sort((a, b) =>
+                  (a.start_time ?? "").localeCompare(b.start_time ?? ""),
+                )
+                .map((e) => (
+                  <li
+                    className="grid grid-cols-[5rem_1fr] gap-4 py-4"
+                    key={e.id}
+                  >
+                    <div className="text-sm tabular-nums">
+                      {e.start_time?.slice(0, 5) || "All day"}
+                      {e.end_time ? (
+                        <p className="mt-1 text-xs muted">
+                          to {e.end_time.slice(0, 5)}
+                          {e.start_time && e.end_time <= e.start_time
+                            ? " +1 day"
+                            : ""}
+                        </p>
+                      ) : null}
+                    </div>
+                    <div>
+                      <p className="font-semibold">{e.title}</p>
+                      <p className="mt-1 text-sm capitalize muted">
+                        {e.event_type}
+                      </p>
+                    </div>
                   </li>
                 ))}
             </ul>
-          </div>
+            {!events.some((e) => e.day_id === day.id) ? (
+              <p className="mt-4 text-sm muted">Room to explore.</p>
+            ) : null}
+          </article>
         ))}
-      </article>
-    </section>
+      </section>
+      {markers.length ? (
+        <section className="border-t border-[var(--line)] pt-6">
+          <h2 className="section-heading">Saved places</h2>
+          <ul className="mt-3 divide-y divide-[var(--line)]">
+            {markers.map((m) => (
+              <li key={m.id} className="py-3">
+                <a
+                  className="text-sm underline underline-offset-4"
+                  href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${m.name}, ${trip.destination}`)}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  {m.name}
+                  <span className="sr-only"> — open map in a new tab</span>
+                </a>
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
+    </div>
   );
 }

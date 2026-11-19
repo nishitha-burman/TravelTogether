@@ -1,549 +1,347 @@
 "use client";
-
-import { useMemo, useState } from "react";
-import { getAuthJsonHeaders } from "@/lib/client-api";
-import { EVENT_TYPES, type DayRow, type EventMeta, type EventRow, type EventType } from "@/types/trip";
-
-type TimelineEditorProps = {
+import { useRef, useState } from "react";
+import { dateLabel } from "@/lib/calendar/time";
+import { useTripMutation } from "@/lib/components/use-trip-mutation";
+import { EventForm, eventPrompts } from "@/lib/components/event-form";
+import type { DayRow, EventRow } from "@/types/trip";
+type Props = {
   tripId: string;
   days: DayRow[];
   events: EventRow[];
-  planningMode: "days" | "date_range";
+  canEdit?: boolean;
+  scaffold?: boolean;
+  timezone?: string | null;
 };
-
-const eventPrompts: Record<EventType, Array<{ key: string; label: string }>> = {
-  stay: [
-    { key: "confirmationCode", label: "Confirmation code" },
-    { key: "bookingUrl", label: "Booking URL" }
-  ],
-  museum: [
-    { key: "ticketRef", label: "Ticket reference" },
-    { key: "bookingUrl", label: "Exhibit URL" }
-  ],
-  travel: [
-    { key: "transportProvider", label: "Carrier" },
-    { key: "seatInfo", label: "Seat/Coach" }
-  ],
-  food: [{ key: "bookingUrl", label: "Reservation URL" }],
-  activity: [
-    { key: "ticketRef", label: "Ticket reference" },
-    { key: "bookingUrl", label: "Activity URL" }
-  ],
-  custom: [{ key: "bookingUrl", label: "Reference URL" }]
-};
-
-type EditableEvent = {
-  title: string;
-  eventType: EventType;
-  startTime: string;
-  endTime: string;
-  notes: string;
-  location: string;
-  metadata: EventMeta;
-};
-
-function formatDayHeader(day: DayRow, planningMode: "days" | "date_range") {
-  if (planningMode !== "date_range" || !day.day_date) {
-    return `Day ${day.day_number}${day.label ? ` - ${day.label}` : ""}`;
+export function TimelineEditor({ tripId, days, events, canEdit = false, scaffold = false, timezone }: Props) {
+  const [condensed, setCondensed] = useState(false);
+  const [addToDay, setAddToDay] = useState<string | null>(null);
+  const [editing, setEditing] = useState<string | null>(null);
+  const [editingDay, setEditingDay] = useState<string | null>(null);
+  const [dayLabel, setDayLabel] = useState("");
+  const [newDay, setNewDay] = useState(false);
+  const [newLabel, setNewLabel] = useState("");
+  const heading = useRef<HTMLHeadingElement>(null);
+  const { mutate, saving, error, status } = useTripMutation();
+  const disabled = saving || scaffold;
+  function focusHeading() {
+    requestAnimationFrame(() => heading.current?.focus());
   }
-  const date = new Date(`${day.day_date}T00:00:00Z`);
-  const formatted = date.toLocaleDateString(undefined, {
-    weekday: "short",
-    month: "short",
-    day: "numeric",
-    year: "numeric"
-  });
-  return `Day ${day.day_number} - ${formatted}${day.label ? ` - ${day.label}` : ""}`;
-}
-
-export function TimelineEditor({ tripId, days, events, planningMode }: TimelineEditorProps) {
-  const [viewMode, setViewMode] = useState<"full" | "condensed">("full");
-  const [dayNumber, setDayNumber] = useState(days[0]?.day_number ?? 1);
-  const [title, setTitle] = useState("");
-  const [eventType, setEventType] = useState<EventType>("activity");
-  const [startTime, setStartTime] = useState("");
-  const [endTime, setEndTime] = useState("");
-  const [notes, setNotes] = useState("");
-  const [location, setLocation] = useState("");
-  const [meta, setMeta] = useState<EventMeta>({});
-  const [newDayLabel, setNewDayLabel] = useState("");
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [editingDayId, setEditingDayId] = useState<string | null>(null);
-  const [editingDayLabel, setEditingDayLabel] = useState("");
-  const [editingEventId, setEditingEventId] = useState<string | null>(null);
-  const [editingEvent, setEditingEvent] = useState<EditableEvent | null>(null);
-
-  const visibleDays = useMemo(() => {
-    if (viewMode === "full") return days;
-    const daysWithEvents = new Set(events.map((event) => event.day_id));
-    return days.filter((day) => daysWithEvents.has(day.id));
-  }, [days, events, viewMode]);
-
-  const eventsByDay = useMemo(() => {
-    return events.reduce<Record<string, EventRow[]>>((acc, event) => {
-      if (!acc[event.day_id]) acc[event.day_id] = [];
-      acc[event.day_id].push(event);
-      return acc;
-    }, {});
-  }, [events]);
-
-  async function addDay(event: React.FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    setSaving(true);
-    setError(null);
-
-    const response = await fetch(`/api/trips/${tripId}/days`, {
-      method: "POST",
-      headers: await getAuthJsonHeaders(),
-      body: JSON.stringify({ label: newDayLabel })
-    });
-
-    setSaving(false);
-    if (!response.ok) {
-      const body = await response.json();
-      setError(body.error || "Could not add day");
-      return;
-    }
-
-    window.location.reload();
-  }
-
-  async function addEvent(event: React.FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    setSaving(true);
-    setError(null);
-
-    const pickedDay = days.find((day) => day.day_number === dayNumber);
-    if (!pickedDay) {
-      setError("Day not found");
-      setSaving(false);
-      return;
-    }
-
-    const nextMeta: EventMeta = { ...meta };
-    if (location.trim()) {
-      nextMeta.location = location.trim();
-    }
-
-    const response = await fetch(`/api/trips/${tripId}/events`, {
-      method: "POST",
-      headers: await getAuthJsonHeaders(),
-      body: JSON.stringify({
-        dayId: pickedDay.id,
-        title,
-        eventType,
-        startTime: startTime || null,
-        endTime: endTime || null,
-        notes,
-        metadata: nextMeta
-      })
-    });
-
-    setSaving(false);
-    if (!response.ok) {
-      const body = await response.json();
-      setError(body.error || "Could not add event");
-      return;
-    }
-
-    window.location.reload();
-  }
-
-  async function saveDayEdit(dayId: string) {
-    const response = await fetch(`/api/trips/${tripId}/days/${dayId}`, {
-      method: "PATCH",
-      headers: await getAuthJsonHeaders(),
-      body: JSON.stringify({ label: editingDayLabel || null })
-    });
-    if (!response.ok) {
-      const body = await response.json();
-      setError(body.error || "Could not update day");
-      return;
-    }
-    window.location.reload();
-  }
-
-  async function deleteDay(dayId: string) {
-    const confirmed = window.confirm("Delete this day and all its events?");
-    if (!confirmed) return;
-
-    const response = await fetch(`/api/trips/${tripId}/days/${dayId}`, {
-      method: "DELETE",
-      headers: await getAuthJsonHeaders()
-    });
-    if (!response.ok) {
-      const body = await response.json();
-      setError(body.error || "Could not delete day");
-      return;
-    }
-    window.location.reload();
-  }
-
-  function startEventEdit(event: EventRow) {
-    setEditingEventId(event.id);
-    setEditingEvent({
-      title: event.title,
-      eventType: event.event_type,
-      startTime: event.start_time ?? "",
-      endTime: event.end_time ?? "",
-      notes: event.notes ?? "",
-      location: (event.metadata?.location as string) ?? "",
-      metadata: { ...(event.metadata ?? {}) }
-    });
-  }
-
-  async function saveEventEdit(eventId: string) {
-    if (!editingEvent) return;
-    const nextMeta = { ...editingEvent.metadata };
-    if (editingEvent.location.trim()) {
-      nextMeta.location = editingEvent.location.trim();
-    } else {
-      delete nextMeta.location;
-    }
-
-    const response = await fetch(`/api/trips/${tripId}/events/${eventId}`, {
-      method: "PATCH",
-      headers: await getAuthJsonHeaders(),
-      body: JSON.stringify({
-        title: editingEvent.title,
-        eventType: editingEvent.eventType,
-        startTime: editingEvent.startTime || null,
-        endTime: editingEvent.endTime || null,
-        notes: editingEvent.notes,
-        metadata: nextMeta
-      })
-    });
-
-    if (!response.ok) {
-      const body = await response.json();
-      setError(body.error || "Could not update event");
-      return;
-    }
-    window.location.reload();
-  }
-
-  async function deleteEvent(eventId: string) {
-    const confirmed = window.confirm("Delete this event?");
-    if (!confirmed) return;
-
-    const response = await fetch(`/api/trips/${tripId}/events/${eventId}`, {
-      method: "DELETE",
-      headers: await getAuthJsonHeaders()
-    });
-    if (!response.ok) {
-      const body = await response.json();
-      setError(body.error || "Could not delete event");
-      return;
-    }
-    window.location.reload();
-  }
-
+  const visibleDays = condensed ? days.filter((d) => events.some((e) => e.day_id === d.id)) : days;
   return (
-    <section className="space-y-4 rounded-xl bg-white/90 p-5 shadow-md ring-1 ring-[#ffd2e6]">
+    <section id="itinerary" aria-labelledby="timeline-heading" className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h2 className="text-xl font-semibold text-slate-900">Timeline</h2>
-          <p className="text-sm text-slate-700">Toggle full trip length vs condensed (only active days).</p>
+          <h2 ref={heading} tabIndex={-1} id="timeline-heading" className="section-heading">
+            The itinerary
+          </h2>
+          <p className="mt-1 text-sm muted">
+            {timezone
+              ? `Local times in ${timezone.replaceAll("_", " ")}`
+              : "Start with places and ideas. Dates can follow."}
+          </p>
         </div>
-        <div className="flex rounded-md border border-[#ffd2e6] bg-slate-50 p-1">
-          <button
-            type="button"
-            className={`rounded px-3 py-1 text-sm ${viewMode === "full" ? "bg-gradient-to-r from-[#ff6a3d] to-[#ff4f8b] text-white" : "text-slate-800"}`}
-            onClick={() => setViewMode("full")}
-          >
-            Full
-          </button>
-          <button
-            type="button"
-            className={`rounded px-3 py-1 text-sm ${viewMode === "condensed" ? "bg-gradient-to-r from-[#ff6a3d] to-[#ff4f8b] text-white" : "text-slate-800"}`}
-            onClick={() => setViewMode("condensed")}
-          >
-            Condensed
-          </button>
+        <div className="flex items-center gap-3">
+          <label className="flex items-center gap-2 text-sm">
+            <input type="checkbox" checked={condensed} onChange={(e) => setCondensed(e.target.checked)} />
+            Hide empty days
+          </label>
+          {canEdit ? (
+            <button
+              className="button-secondary"
+              disabled={saving || !days.length}
+              onClick={() => setAddToDay(days[0]?.id ?? null)}
+            >
+              Add event
+            </button>
+          ) : null}
         </div>
       </div>
-
-      <div className="grid gap-4 lg:grid-cols-2">
-        <form onSubmit={addDay} className="space-y-2 rounded-lg border border-[#ffd2e6] bg-white p-4">
-          <h3 className="font-semibold text-slate-900">Add day</h3>
-          <input
-            value={newDayLabel}
-            onChange={(event) => setNewDayLabel(event.target.value)}
-            placeholder="Optional label (Arrival Day)"
-            className="w-full rounded-md border border-slate-300 bg-slate-50 px-3 py-2 outline-none transition focus:border-[#ff6a3d] focus:ring-2 focus:ring-[#ffd2e6]"
-          />
-          <button
-            type="submit"
-            disabled={saving}
-            className="rounded-md bg-gradient-to-r from-[#ff6a3d] to-[#ff4f8b] px-3 py-2 text-sm font-semibold text-white shadow-sm transition hover:from-[#ff7b52] hover:to-[#ff62a0] disabled:opacity-60"
-          >
-            Add day
-          </button>
-        </form>
-
-        <form onSubmit={addEvent} className="space-y-3 rounded-lg border border-[#ffd2e6] bg-white p-4">
-          <h3 className="font-semibold text-slate-900">Add event</h3>
-          <select
-            value={dayNumber}
-            onChange={(event) => setDayNumber(Number(event.target.value))}
-            className="w-full rounded-md border border-slate-300 bg-slate-50 px-3 py-2 outline-none transition focus:border-[#ff6a3d] focus:ring-2 focus:ring-[#ffd2e6]"
-          >
-            {days.map((day) => (
-              <option key={day.id} value={day.day_number}>
-                {formatDayHeader(day, planningMode)}
-              </option>
-            ))}
-          </select>
-
-          <input
-            value={title}
-            onChange={(event) => setTitle(event.target.value)}
-            placeholder="Event title"
-            className="w-full rounded-md border border-slate-300 bg-slate-50 px-3 py-2 outline-none transition focus:border-[#ff6a3d] focus:ring-2 focus:ring-[#ffd2e6]"
-            required
-          />
-
-          <input
-            value={location}
-            onChange={(event) => setLocation(event.target.value)}
-            placeholder="Location (optional)"
-            className="w-full rounded-md border border-slate-300 bg-slate-50 px-3 py-2 outline-none transition focus:border-[#ff6a3d] focus:ring-2 focus:ring-[#ffd2e6]"
-          />
-
-          <select
-            value={eventType}
-            onChange={(event) => {
-              setEventType(event.target.value as EventType);
-              setMeta({});
-            }}
-            className="w-full rounded-md border border-slate-300 bg-slate-50 px-3 py-2 outline-none transition focus:border-[#ff6a3d] focus:ring-2 focus:ring-[#ffd2e6]"
-          >
-            {EVENT_TYPES.map((type) => (
-              <option key={type} value={type}>
-                {type}
-              </option>
-            ))}
-          </select>
-
-          <div className="grid gap-2 sm:grid-cols-2">
-            <input
-              type="time"
-              value={startTime}
-              onChange={(event) => setStartTime(event.target.value)}
-              className="w-full rounded-md border border-slate-300 bg-slate-50 px-3 py-2 outline-none transition focus:border-[#ff6a3d] focus:ring-2 focus:ring-[#ffd2e6]"
-            />
-            <input
-              type="time"
-              value={endTime}
-              onChange={(event) => setEndTime(event.target.value)}
-              className="w-full rounded-md border border-slate-300 bg-slate-50 px-3 py-2 outline-none transition focus:border-[#ff6a3d] focus:ring-2 focus:ring-[#ffd2e6]"
-            />
-          </div>
-
-          {eventPrompts[eventType].map((prompt) => (
-            <input
-              key={prompt.key}
-              value={(meta[prompt.key] as string) ?? ""}
-              onChange={(event) =>
-                setMeta((prev) => ({
-                  ...prev,
-                  [prompt.key]: event.target.value
-                }))
-              }
-              placeholder={prompt.label}
-              className="w-full rounded-md border border-slate-300 bg-slate-50 px-3 py-2 outline-none transition focus:border-[#ff6a3d] focus:ring-2 focus:ring-[#ffd2e6]"
-            />
-          ))}
-
-          <textarea
-            value={notes}
-            onChange={(event) => setNotes(event.target.value)}
-            placeholder="Notes"
-            className="w-full rounded-md border border-slate-300 bg-slate-50 px-3 py-2 outline-none transition focus:border-[#ff6a3d] focus:ring-2 focus:ring-[#ffd2e6]"
-          />
-
-          <button
-            type="submit"
-            disabled={saving}
-            className="rounded-md bg-gradient-to-r from-[#ff6a3d] to-[#ff4f8b] px-3 py-2 text-sm font-semibold text-white shadow-sm transition hover:from-[#ff7b52] hover:to-[#ff62a0] disabled:opacity-60"
-          >
-            Save event
-          </button>
-        </form>
+      {scaffold && canEdit ? (
+        <p className="status">Explore the editing forms. Changes are not saved in this sample trip.</p>
+      ) : null}
+      <div role="status" className="status">
+        {status}
       </div>
-
-      {error ? <p className="text-sm text-red-600">{error}</p> : null}
-
-      <div className="space-y-3">
-        {visibleDays.map((day) => (
-          <article key={day.id} className="rounded-lg border border-[#ffd2e6] bg-white p-4">
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              {editingDayId === day.id ? (
-                <div className="flex w-full flex-wrap items-center gap-2">
-                  <input
-                    value={editingDayLabel}
-                    onChange={(event) => setEditingDayLabel(event.target.value)}
-                    className="flex-1 rounded-md border border-slate-300 bg-slate-50 px-3 py-2 outline-none transition focus:border-[#ff6a3d] focus:ring-2 focus:ring-[#ffd2e6]"
-                  />
-                  <button
-                    type="button"
-                    className="rounded-md bg-gradient-to-r from-[#ff6a3d] to-[#ff4f8b] px-3 py-2 text-sm font-semibold text-white"
-                    onClick={() => saveDayEdit(day.id)}
-                  >
+      {error ? (
+        <p role="alert" className="error">
+          {error}
+        </p>
+      ) : null}
+      {canEdit && addToDay ? (
+        <EventForm
+          key={addToDay}
+          days={days}
+          defaultDayId={addToDay}
+          saving={saving}
+          disabled={scaffold}
+          onCancel={() => {
+            setAddToDay(null);
+            focusHeading();
+          }}
+          onSave={(body) =>
+            mutate(`/api/trips/${tripId}/events`, "POST", body, () => {
+              setAddToDay(null);
+              focusHeading();
+            })
+          }
+        />
+      ) : null}
+      <div className="space-y-8">
+        {visibleDays.map((day) => {
+          const entries = events
+            .filter((e) => e.day_id === day.id)
+            .sort(
+              (a, b) => (a.start_time ?? "").localeCompare(b.start_time ?? "") || a.id.localeCompare(b.id),
+            );
+          return (
+            <article key={day.id} className="border-t border-[var(--line)] pt-5">
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                  <p className="eyebrow">
+                    Day {day.day_number}
+                    {day.day_date ? ` / ${dateLabel(day.day_date)}` : ""}
+                  </p>
+                  <h3 className="mt-1 font-serif text-2xl">{day.label || "An open day"}</h3>
+                </div>
+                {canEdit ? (
+                  <div className="flex gap-2">
+                    <button className="text-button" onClick={() => setAddToDay(day.id)} disabled={saving}>
+                      Add event<span className="sr-only"> to day {day.day_number}</span>
+                    </button>
+                    <details className="relative">
+                      <summary className="px-2 py-2 text-sm" aria-label={`Options for day ${day.day_number}`}>
+                        Day options
+                      </summary>
+                      <div className="absolute right-0 z-10 w-48 rounded-md border bg-white p-2 shadow-md">
+                        <button
+                          className="text-button w-full text-left"
+                          disabled={saving}
+                          onClick={() => {
+                            setEditingDay(day.id);
+                            setDayLabel(day.label ?? "");
+                          }}
+                        >
+                          Rename day
+                        </button>
+                        <button
+                          className="text-button w-full text-left text-red-800"
+                          disabled={disabled || days.length <= 1}
+                          onClick={() => {
+                            if (
+                              window.confirm("Delete this day and its events? Other days keep their dates.")
+                            )
+                              void mutate(
+                                `/api/trips/${tripId}/days/${day.id}`,
+                                "DELETE",
+                                undefined,
+                                focusHeading,
+                              );
+                          }}
+                        >
+                          Delete day
+                        </button>
+                      </div>
+                    </details>
+                  </div>
+                ) : null}
+              </div>
+              {canEdit && editingDay === day.id ? (
+                <form
+                  className="mt-4 flex flex-wrap items-end gap-3"
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    void mutate(`/api/trips/${tripId}/days/${day.id}`, "PATCH", { label: dayLabel }, () => {
+                      setEditingDay(null);
+                      focusHeading();
+                    });
+                  }}
+                >
+                  <label className="field-label flex-1">
+                    Day label
+                    <input
+                      className="field"
+                      autoFocus
+                      value={dayLabel}
+                      onChange={(e) => setDayLabel(e.target.value)}
+                      maxLength={80}
+                    />
+                  </label>
+                  <button disabled={disabled} className="button">
                     Save day
                   </button>
                   <button
                     type="button"
-                    className="rounded-md border border-slate-300 px-3 py-2 text-sm font-semibold text-slate-700"
-                    onClick={() => setEditingDayId(null)}
+                    className="button-secondary"
+                    onClick={() => {
+                      setEditingDay(null);
+                      focusHeading();
+                    }}
                   >
                     Cancel
                   </button>
-                </div>
-              ) : (
-                <>
-                  <h4 className="font-semibold text-slate-900">{formatDayHeader(day, planningMode)}</h4>
-                  <div className="flex items-center gap-2">
-                    <button
-                      type="button"
-                      className="rounded-md border border-slate-300 px-2 py-1 text-xs font-semibold text-slate-700"
-                      onClick={() => {
-                        setEditingDayId(day.id);
-                        setEditingDayLabel(day.label ?? "");
-                      }}
-                    >
-                      Edit day
-                    </button>
-                    <button
-                      type="button"
-                      className="rounded-md border border-red-300 px-2 py-1 text-xs font-semibold text-red-700"
-                      onClick={() => deleteDay(day.id)}
-                    >
-                      Delete day
-                    </button>
-                  </div>
-                </>
-              )}
-            </div>
-
-            <div className="mt-2 space-y-2">
-              {(eventsByDay[day.id] ?? []).map((event) => (
-                <div key={event.id} className="rounded-md bg-[#fff1f7] p-3 text-sm">
-                  {editingEventId === event.id && editingEvent ? (
-                    <div className="space-y-2">
-                      <input
-                        value={editingEvent.title}
-                        onChange={(e) => setEditingEvent((prev) => (prev ? { ...prev, title: e.target.value } : prev))}
-                        className="w-full rounded-md border border-slate-300 bg-white px-3 py-2"
-                      />
-                      <input
-                        value={editingEvent.location}
-                        onChange={(e) => setEditingEvent((prev) => (prev ? { ...prev, location: e.target.value } : prev))}
-                        placeholder="Location (optional)"
-                        className="w-full rounded-md border border-slate-300 bg-white px-3 py-2"
-                      />
-                      <select
-                        value={editingEvent.eventType}
-                        onChange={(e) =>
-                          setEditingEvent((prev) =>
-                            prev ? { ...prev, eventType: e.target.value as EventType } : prev
-                          )
+                </form>
+              ) : null}
+              <div className="mt-4 divide-y divide-[var(--line)]">
+                {entries.map((event) => (
+                  <div key={event.id} className="py-4">
+                    {canEdit && editing === event.id ? (
+                      <EventForm
+                        event={event}
+                        saving={saving}
+                        disabled={scaffold}
+                        onCancel={() => {
+                          setEditing(null);
+                          focusHeading();
+                        }}
+                        onSave={(body) =>
+                          mutate(`/api/trips/${tripId}/events/${event.id}`, "PATCH", body, () => {
+                            setEditing(null);
+                            focusHeading();
+                          })
                         }
-                        className="w-full rounded-md border border-slate-300 bg-white px-3 py-2"
-                      >
-                        {EVENT_TYPES.map((type) => (
-                          <option key={type} value={type}>
-                            {type}
-                          </option>
-                        ))}
-                      </select>
-                      <div className="grid gap-2 sm:grid-cols-2">
-                        <input
-                          type="time"
-                          value={editingEvent.startTime}
-                          onChange={(e) =>
-                            setEditingEvent((prev) => (prev ? { ...prev, startTime: e.target.value } : prev))
-                          }
-                          className="w-full rounded-md border border-slate-300 bg-white px-3 py-2"
-                        />
-                        <input
-                          type="time"
-                          value={editingEvent.endTime}
-                          onChange={(e) =>
-                            setEditingEvent((prev) => (prev ? { ...prev, endTime: e.target.value } : prev))
-                          }
-                          className="w-full rounded-md border border-slate-300 bg-white px-3 py-2"
-                        />
-                      </div>
-                      <textarea
-                        value={editingEvent.notes}
-                        onChange={(e) => setEditingEvent((prev) => (prev ? { ...prev, notes: e.target.value } : prev))}
-                        placeholder="Notes"
-                        className="w-full rounded-md border border-slate-300 bg-white px-3 py-2"
                       />
-                      <div className="flex items-center gap-2">
-                        <button
-                          type="button"
-                          className="rounded-md bg-gradient-to-r from-[#ff6a3d] to-[#ff4f8b] px-3 py-2 text-xs font-semibold text-white"
-                          onClick={() => saveEventEdit(event.id)}
-                        >
-                          Save event
-                        </button>
-                        <button
-                          type="button"
-                          className="rounded-md border border-slate-300 px-3 py-2 text-xs font-semibold text-slate-700"
-                          onClick={() => {
-                            setEditingEventId(null);
-                            setEditingEvent(null);
-                          }}
-                        >
-                          Cancel
-                        </button>
+                    ) : (
+                      <div className="grid grid-cols-[4.5rem_1fr] gap-3 sm:grid-cols-[6rem_1fr_auto]">
+                        <div className="pt-0.5 text-sm tabular-nums">
+                          <p>{event.start_time?.slice(0, 5) || "All day"}</p>
+                          {event.end_time ? (
+                            <p className="mt-1 text-xs muted">
+                              to {event.end_time.slice(0, 5)}
+                              {event.start_time && event.end_time <= event.start_time ? " +1 day" : ""}
+                            </p>
+                          ) : null}
+                        </div>
+                        <div className="min-w-0">
+                          <h4 className="break-words font-semibold">{event.title}</h4>
+                          <p className="mt-1 text-sm muted">
+                            {event.event_type[0].toUpperCase() + event.event_type.slice(1)}
+                            {typeof event.metadata?.location === "string" && event.metadata.location
+                              ? ` · ${event.metadata.location}`
+                              : ""}
+                          </p>
+                          {event.notes ||
+                          eventPrompts[event.event_type].some((p) => event.metadata[p.key]) ? (
+                            <details className="mt-2">
+                              <summary className="text-xs muted">Group notes & booking details</summary>
+                              <div className="mt-2 space-y-2 text-sm">
+                                {event.notes ? (
+                                  <p className="whitespace-pre-wrap break-words">{event.notes}</p>
+                                ) : null}
+                                <dl className="space-y-1">
+                                  {eventPrompts[event.event_type]
+                                    .filter((p) => event.metadata[p.key])
+                                    .map((p) => (
+                                      <div key={p.key} className="break-words">
+                                        <dt className="inline muted">{p.label}: </dt>
+                                        <dd className="inline">{String(event.metadata[p.key])}</dd>
+                                      </div>
+                                    ))}
+                                </dl>
+                              </div>
+                            </details>
+                          ) : null}
+                        </div>
+                        {canEdit ? (
+                          <div className="col-start-2 flex gap-2 sm:col-start-auto">
+                            <button
+                              className="text-button"
+                              disabled={saving}
+                              onClick={() => setEditing(event.id)}
+                              aria-label={`Edit ${event.title}`}
+                            >
+                              Edit
+                            </button>
+                            <details className="relative">
+                              <summary
+                                className="px-2 py-2 text-sm"
+                                aria-label={`More actions for ${event.title}`}
+                              >
+                                More
+                              </summary>
+                              <div className="absolute right-0 z-10 w-36 border bg-white p-2 shadow-md">
+                                <button
+                                  className="text-button text-red-800"
+                                  disabled={disabled}
+                                  onClick={() => {
+                                    if (window.confirm(`Delete “${event.title}”?`))
+                                      void mutate(
+                                        `/api/trips/${tripId}/events/${event.id}`,
+                                        "DELETE",
+                                        undefined,
+                                        focusHeading,
+                                      );
+                                  }}
+                                >
+                                  Delete event
+                                </button>
+                              </div>
+                            </details>
+                          </div>
+                        ) : null}
                       </div>
-                    </div>
-                  ) : (
-                    <>
-                      <p className="font-semibold text-slate-900">{event.title}</p>
-                      <p className="text-slate-700">
-                        {event.event_type}
-                        {event.start_time ? ` • ${event.start_time}` : ""}
-                        {event.end_time ? ` - ${event.end_time}` : ""}
-                      </p>
-                      {(event.metadata?.location as string) ? (
-                        <p className="text-slate-700">Location: {event.metadata.location as string}</p>
-                      ) : null}
-                      {Object.keys(event.metadata || {}).length > 0 ? (
-                        <pre className="mt-1 whitespace-pre-wrap text-xs text-slate-700">
-                          {JSON.stringify(event.metadata, null, 2)}
-                        </pre>
-                      ) : null}
-                      {event.notes ? <p className="mt-1 text-slate-800">{event.notes}</p> : null}
-                      <div className="mt-2 flex items-center gap-2">
-                        <button
-                          type="button"
-                          className="rounded-md border border-slate-300 px-2 py-1 text-xs font-semibold text-slate-700"
-                          onClick={() => startEventEdit(event)}
-                        >
-                          Edit
-                        </button>
-                        <button
-                          type="button"
-                          className="rounded-md border border-red-300 px-2 py-1 text-xs font-semibold text-red-700"
-                          onClick={() => deleteEvent(event.id)}
-                        >
-                          Delete
-                        </button>
-                      </div>
-                    </>
-                  )}
-                </div>
-              ))}
-              {(eventsByDay[day.id] ?? []).length === 0 ? <p className="text-sm text-slate-700">No events yet.</p> : null}
-            </div>
-          </article>
-        ))}
+                    )}
+                  </div>
+                ))}
+                {!entries.length ? (
+                  <p className="py-4 text-sm muted">
+                    Nothing planned yet. Leave space to explore{canEdit ? ", or add an event above" : ""}.
+                  </p>
+                ) : null}
+              </div>
+            </article>
+          );
+        })}
       </div>
+      {!visibleDays.length ? (
+        <p className="status">
+          No days to show{condensed ? ". Uncheck “Hide empty days” to see the whole trip" : ""}.
+        </p>
+      ) : null}
+      {canEdit ? (
+        <div className="border-t border-[var(--line)] pt-5">
+          {newDay ? (
+            <form
+              className="flex flex-wrap items-end gap-3"
+              onSubmit={(e) => {
+                e.preventDefault();
+                void mutate(`/api/trips/${tripId}/days`, "POST", { label: newLabel }, () => {
+                  setNewDay(false);
+                  setNewLabel("");
+                  focusHeading();
+                });
+              }}
+            >
+              <label className="field-label flex-1">
+                New day label (optional)
+                <input
+                  className="field"
+                  autoFocus
+                  maxLength={80}
+                  value={newLabel}
+                  onChange={(e) => setNewLabel(e.target.value)}
+                />
+              </label>
+              <button className="button" disabled={disabled}>
+                Add day
+              </button>
+              <button
+                type="button"
+                className="button-secondary"
+                onClick={() => {
+                  setNewDay(false);
+                  focusHeading();
+                }}
+              >
+                Cancel
+              </button>
+            </form>
+          ) : (
+            <button className="button-secondary" onClick={() => setNewDay(true)}>
+              Add another day
+            </button>
+          )}
+        </div>
+      ) : null}
     </section>
   );
 }

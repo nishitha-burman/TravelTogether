@@ -4,13 +4,107 @@
 
 :root {
   color-scheme: light;
+  --paper: #f7f6f2;
+  --ink: #263c35;
+  --muted: #627069;
+  --line: #d9dfd7;
+  --accent: #9e492f;
 }
-
 body {
-  background:
-    radial-gradient(circle at 12% 18%, rgba(255, 77, 166, 0.22) 0%, rgba(255, 77, 166, 0) 36%),
-    radial-gradient(circle at 85% 14%, rgba(31, 182, 217, 0.24) 0%, rgba(31, 182, 217, 0) 38%),
-    radial-gradient(circle at 18% 86%, rgba(255, 153, 51, 0.2) 0%, rgba(255, 153, 51, 0) 42%),
-    linear-gradient(160deg, #ecfeff 0%, #fdf2f8 48%, #fff7ed 100%);
-  color: #0a2f4d;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: Arial, Helvetica, sans-serif;
+}
+* {
+  box-sizing: border-box;
+}
+html {
+  scroll-behavior: smooth;
+  scroll-padding-top: 1.5rem;
+}
+:focus-visible {
+  outline: 3px solid var(--accent);
+  outline-offset: 3px;
+}
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+input,
+select,
+textarea {
+  min-width: 0;
+}
+summary {
+  cursor: pointer;
+}
+a,
+button {
+  -webkit-tap-highlight-color: transparent;
+}
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+  * {
+    transition: none !important;
+  }
+}
+@layer components {
+  .page-title {
+    @apply text-3xl font-medium tracking-tight;
+    font-family: Georgia, "Times New Roman", serif;
+    line-height: 1.2;
+  }
+  .eyebrow {
+    @apply text-xs font-semibold uppercase tracking-widest;
+    color: var(--muted);
+  }
+  .muted {
+    color: var(--muted);
+  }
+  .panel {
+    @apply rounded-lg border bg-white p-5 sm:p-6;
+    border-color: var(--line);
+  }
+  .button {
+    @apply inline-flex min-h-11 items-center justify-center gap-2 rounded-md px-4 py-2 text-sm font-semibold text-white transition;
+    background: var(--ink);
+  }
+  .button:hover {
+    background: #3d574c;
+  }
+  .button-secondary {
+    @apply inline-flex min-h-11 items-center justify-center rounded-md border bg-white px-4 py-2 text-sm font-semibold transition;
+    border-color: var(--line);
+  }
+  .button-secondary:hover {
+    background: #edf0e9;
+  }
+  .text-button {
+    @apply min-h-10 px-2 py-1 text-sm underline decoration-1 underline-offset-4;
+  }
+  .field {
+    @apply mt-1 block min-h-11 w-full rounded-md border bg-white px-3 py-2 text-sm;
+    border-color: #b8c3b9;
+  }
+  .field-label {
+    @apply block text-sm font-medium;
+  }
+  .status {
+    @apply text-sm;
+    color: var(--muted);
+  }
+  .error {
+    @apply rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-800;
+  }
+  .section-heading {
+    @apply text-xl font-semibold tracking-tight;
+  }
 }

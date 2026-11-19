@@ -1,202 +1,156 @@
-import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { isSupabaseConfigured } from "@/lib/env";
 import { requireUser } from "@/lib/trips";
+import { getTripRole } from "@/lib/api-auth";
+import {
+  canEditContent,
+  canManageTrip,
+  type TripRole,
+} from "@/lib/permissions";
+import { readTrips, readTimeline, readMarkers } from "@/lib/server/trip-data";
+import { demoTrip, honoluluPreviewNote } from "@/lib/demo";
+import { calendarReadiness } from "@/lib/calendar/readiness";
 import { TimelineEditor } from "@/lib/components/timeline-editor";
 import { SharingSettings } from "@/lib/components/sharing-settings";
 import { MapEditor } from "@/lib/components/map-editor-client";
 import { DeleteItineraryButton } from "@/lib/components/delete-itinerary-button";
 import { CalendarExport } from "@/lib/components/calendar-export";
-
-export default async function TripDetailPage({ params }: { params: Promise<{ id: string }> }) {
+import { TripHeading } from "@/lib/components/trip-heading";
+export default async function TripDetailPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ id: string }>;
+  searchParams: Promise<{ role?: string }>;
+}) {
   const { id } = await params;
-
-  if (!isSupabaseConfigured()) {
-    return (
-      <section className="space-y-6">
-        <div className="rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-          Scaffold mode enabled. This trip page is rendering with mock content.
-        </div>
-
-        <div className="overflow-hidden rounded-2xl bg-white/90 shadow-md ring-1 ring-[#ffd2e6]">
-          <div className="relative h-72 w-full bg-slate-900 md:h-96">
-            <Image
-              src="https://images.unsplash.com/photo-1533105079780-92b9be482077?q=80&w=1600&auto=format&fit=crop"
-              alt="Demo trip"
-              fill
-              className="object-cover"
-            />
-            <div className="absolute inset-0 bg-gradient-to-t from-black/65 via-black/15 to-transparent" />
-            <div className="absolute inset-x-0 bottom-0 space-y-2 p-6 text-white">
-              <Link href="/dashboard" className="text-sm font-medium text-white/90 hover:underline">
-                ← Back to dashboard
-              </Link>
-              <h1 className="text-3xl font-bold">Demo Itinerary ({id})</h1>
-              <p className="text-white/90">Lisbon, Portugal • 5 days</p>
-            </div>
-          </div>
-        </div>
-
-        <section className="rounded-xl bg-white/90 p-5 shadow-md ring-1 ring-[#ffd2e6]">
-          <h2 className="text-xl font-semibold text-slate-900">Sharing</h2>
-          <p className="mt-2 text-sm text-slate-700">Private/public controls and email invites will activate after Supabase setup.</p>
+  const scaffold = !isSupabaseConfigured();
+  let data = demoTrip(id);
+  let role: TripRole | null = "owner";
+  if (!scaffold) {
+    const { supabase, user } = await requireUser();
+    role = await getTripRole(supabase, id, user.id);
+    if (!role)
+      return (
+        <section className="panel space-y-4">
+          <h1 className="page-title">This trip isn’t available to you</h1>
+          <p className="muted">
+            Your access may have changed. Ask the owner for an invitation, or
+            return to your trips.
+          </p>
+          <Link href="/dashboard" className="button">
+            Your trips
+          </Link>
         </section>
-
-        <MapEditor
-          tripId={id}
-          destination="Lisbon, Portugal"
-          markers={[
-            {
-              id: "demo-belem",
-              itinerary_id: id,
-              name: "Belém Tower",
-              description: "Waterfront landmark",
-              latitude: 38.6916,
-              longitude: -9.216
-            },
-            {
-              id: "demo-alfama",
-              itinerary_id: id,
-              name: "Alfama",
-              description: "Historic neighborhood",
-              latitude: 38.711,
-              longitude: -9.1294
-            }
-          ]}
-        />
-
-        <section className="rounded-xl bg-white/90 p-5 shadow-md ring-1 ring-[#ffd2e6]">
-          <h2 className="text-xl font-semibold text-slate-900">Timeline</h2>
-          <p className="mt-2 text-sm text-slate-700">Day-by-day planner UI is ready; event persistence will activate with Supabase.</p>
-          <div className="mt-3 space-y-2 text-sm text-slate-800">
-            <p>Day 1 - Arrival</p>
-            <p>Day 2 - Museum and food tour</p>
-            <p>Day 3 - Intercity travel</p>
-          </div>
-        </section>
-
-        <CalendarExport tripId={id} eventCount={0} hasUndatedEvents scaffold />
-      </section>
-    );
+      );
+    const [[trip], timeline, markers] = await Promise.all([
+      readTrips(supabase, [id]),
+      readTimeline(supabase, [id]),
+      readMarkers(supabase, id),
+    ]);
+    if (!trip) notFound();
+    data = { trip, ...timeline, markers };
+  } else {
+    const query = await searchParams;
+    if (query.role === "editor" || query.role === "viewer") role = query.role;
   }
-
-  const { supabase } = await requireUser();
-
-  let { data: trip, error: tripError } = await supabase
-    .from("itineraries")
-    .select("id, title, city, destination, planning_mode, start_date, end_date, theme_image_url, is_public, public_slug, trip_length_days")
-    .eq("id", id)
-    .single();
-
-  if (tripError && tripError.message.toLowerCase().includes("column")) {
-    const fallback = await supabase
-      .from("itineraries")
-      .select("id, title, destination, theme_image_url, is_public, public_slug, trip_length_days")
-      .eq("id", id)
-      .single();
-    trip = fallback.data
-      ? {
-          ...fallback.data,
-          city: fallback.data.destination,
-          planning_mode: "days",
-          start_date: null,
-          end_date: null
-        }
-      : null;
-    tripError = fallback.error;
-  }
-
-  if (tripError || !trip) {
-    notFound();
-  }
-
-  const [{ data: daysData }, { data: events }, { data: markers }] = await Promise.all([
-    supabase
-      .from("trip_days")
-      .select("id, itinerary_id, day_number, label, day_date")
-      .eq("itinerary_id", id)
-      .order("day_number"),
-    supabase
-      .from("itinerary_events")
-      .select("id, itinerary_id, day_id, title, event_type, start_time, end_time, notes, metadata")
-      .eq("itinerary_id", id),
-    supabase
-      .from("itinerary_markers")
-      .select("id, itinerary_id, name, description, latitude, longitude")
-      .eq("itinerary_id", id)
-  ]);
-
-  let days = daysData;
-  if (!days) {
-    const fallbackDays = await supabase
-      .from("trip_days")
-      .select("id, itinerary_id, day_number, label")
-      .eq("itinerary_id", id)
-      .order("day_number");
-    days = (fallbackDays.data ?? []).map((day) => ({ ...day, day_date: null }));
-  }
-
-  const datesByDayId = new Map((days ?? []).map((day) => [day.id, day.day_date]));
-  const hasUndatedEvents = (events ?? []).some((event) => !datesByDayId.get(event.day_id));
-
+  const { trip, days, events, markers } = data;
+  const edit = canEditContent(role),
+    manage = canManageTrip(role);
+  const readiness = calendarReadiness(trip.timezone, days, events);
   return (
-    <section className="space-y-6">
-      <div className="overflow-hidden rounded-2xl bg-white/90 shadow-md ring-1 ring-[#ffd2e6]">
-        {trip.theme_image_url ? (
-          <div className="relative h-72 w-full bg-slate-900 md:h-96">
-            <Image src={trip.theme_image_url} alt={trip.title} fill className="object-cover" />
-            <div className="absolute inset-0 bg-gradient-to-t from-black/65 via-black/15 to-transparent" />
-            <div className="absolute inset-x-0 bottom-0 space-y-2 p-6 text-white">
-              <Link href="/dashboard" className="text-sm font-medium text-white/90 hover:underline">
-                ← Back to dashboard
+    <div className="space-y-8">
+      {scaffold ? (
+        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[var(--line)] pb-3 text-xs muted">
+          <span>Sample trip · Changes are not saved</span>
+          <nav aria-label="Preview access level" className="flex gap-3">
+            {["owner", "editor", "viewer"].map((r) => (
+              <Link
+                key={r}
+                href={`/trips/${id}?role=${r}`}
+                aria-current={r === role ? "page" : undefined}
+                className={
+                  r === role ? "font-bold underline" : "hover:underline"
+                }
+              >
+                {r[0].toUpperCase() + r.slice(1)}
               </Link>
-              <h1 className="text-3xl font-bold">{trip.title}</h1>
-              <p className="text-white/90">
-                {trip.destination} • {trip.trip_length_days} days
-              </p>
-            </div>
-          </div>
-        ) : (
-          <div className="space-y-2 p-6">
-            <Link href="/dashboard" className="text-sm font-medium text-[#ff4f8b] hover:underline">
-              ← Back to dashboard
-            </Link>
-            <h1 className="text-3xl font-bold text-slate-900">{trip.title}</h1>
-            <p className="text-slate-700">
-              {trip.destination} • {trip.trip_length_days} days
-            </p>
-          </div>
-        )}
-      </div>
-
-      <div className="flex justify-end">
-        <DeleteItineraryButton tripId={trip.id} redirectToDashboard />
-      </div>
-
-      <SharingSettings tripId={trip.id} isPublic={trip.is_public} publicSlug={trip.public_slug} />
-      <MapEditor tripId={trip.id} markers={markers ?? []} destination={trip.city ?? trip.destination} />
-      <TimelineEditor
-        tripId={trip.id}
-        days={days ?? []}
-        events={events ?? []}
-        planningMode={trip.planning_mode ?? "days"}
+            ))}
+          </nav>
+        </div>
+      ) : null}
+      <TripHeading
+        title={trip.title}
+        destination={trip.destination}
+        image={trip.theme_image_url}
+        days={days.length}
+        startDate={trip.start_date}
+        endDate={trip.end_date}
+        timezone={trip.timezone ?? null}
+        role={
+          role === "owner"
+            ? "Your trip · Owner"
+            : role === "editor"
+              ? "Editor · You can change the itinerary"
+              : "Viewer · Read-only itinerary"
+        }
       />
+      {scaffold && id !== "demo-kyoto" ? (
+        <p className="text-sm muted">{honoluluPreviewNote}</p>
+      ) : null}
+      <nav
+        aria-label="Trip sections"
+        className="flex flex-wrap gap-x-6 gap-y-3 border-b border-[var(--line)] pb-4 text-sm font-semibold"
+      >
+        <a href="#itinerary">Itinerary</a>
+        <a href="#calendar">Calendar</a>
+        <a href="#places">Saved places</a>
+        {manage ? <a href="#sharing">Travelers & sharing</a> : null}
+      </nav>
       <CalendarExport
-        tripId={trip.id}
-        eventCount={(events ?? []).length}
-        hasUndatedEvents={hasUndatedEvents}
+        tripId={id}
+        readiness={readiness}
+        timezone={trip.timezone ?? null}
+        startDate={trip.start_date}
+        destination={trip.destination}
+        canEdit={edit}
+        scaffold={scaffold}
       />
-
-      <section className="rounded-xl bg-white/90 p-5 shadow-md ring-1 ring-[#ffd2e6]">
-        <h2 className="text-lg font-semibold text-slate-900">Planned for later phases</h2>
-        <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-slate-700">
-          <li>Direct Google Calendar sync with automatic updates.</li>
-          <li>Subscribe-to-calendar feeds with automatic updates.</li>
-          <li>Photo uploads with per-trip and per-user limits.</li>
-          <li>Automated conflict checks for overlapping transport/stays.</li>
-        </ul>
-      </section>
-    </section>
+      <TimelineEditor
+        tripId={id}
+        days={days}
+        events={events}
+        timezone={trip.timezone}
+        canEdit={edit}
+        scaffold={scaffold}
+      />
+      <MapEditor
+        tripId={id}
+        markers={markers}
+        destination={trip.destination}
+        canEdit={edit}
+        scaffold={scaffold}
+      />
+      {manage ? (
+        <SharingSettings
+          tripId={id}
+          isPublic={trip.is_public}
+          publicSlug={trip.public_slug}
+          scaffold={scaffold}
+        />
+      ) : null}
+      {manage && !scaffold ? (
+        <details className="border-t border-[var(--line)] pt-5">
+          <summary className="text-sm muted">Trip administration</summary>
+          <div className="mt-4 space-y-3">
+            <p className="text-sm muted">
+              Deleting the trip removes its itinerary and everyone’s access.
+            </p>
+            <DeleteItineraryButton tripId={id} redirectToDashboard />
+          </div>
+        </details>
+      ) : null}
+    </div>
   );
 }

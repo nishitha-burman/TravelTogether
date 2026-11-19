@@ -4,6 +4,15 @@
 
 This backlog prioritizes the next product work around TravelTogether's core promise: helping a small group build and use one shared trip plan. Items are ordered by customer value and technical dependency, not just implementation size.
 
+## v1.4 release update
+
+The current behavior is documented in [product context](PRODUCT_CONTEXT.md), [release audit](RELEASE_AUDIT.md) and [calendar ADR](CALENDAR_DELIVERY_ADR.md). Historical acceptance criteria below remain the broader roadmap.
+
+- Delivered: COLLAB-01/02/03/04 role-aware content editing, owner-only administration, pending/accepted traveler management and dashboard role labels. Ownership transfer remains out of scope.
+- Delivered: shared mutation state and `router.refresh()` in timeline/map paths; progressive event forms and readable private details. Optimistic rollback/reordering is not implemented; edits reconcile after server confirmation.
+- Delivered: explicit timezone, date assignment for existing day-count trips, consistent readiness, revision-aware UTC calendar snapshots and automated coverage. Notes/booking URLs are now excluded from export.
+- EXPORT-02/03 remain in progress: public/individual exports and live calendar-client import verification are not delivered. Subscriptions are the next highest-value slice after staging verification; see the concrete ADR plan.
+
 ## Priority Definitions
 
 - **P0** — Required for the next release or a dependency for other P0 work.

@@ -17,15 +17,15 @@ export default async function NewTripPage() {
 
   return (
     <section className="mx-auto max-w-2xl space-y-4">
-      <h1 className="text-3xl font-bold text-[#ff4f8b]">Create itinerary</h1>
+      <h1 className="page-title">Start a trip</h1>
       {!enabled ? (
         <p className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
-          Scaffold mode: form is preview-only until Supabase is configured.
+          Sample planning form · Saving is disabled in this preview.
         </p>
       ) : null}
       <p className="text-slate-700">
-        Choose city and either number of days or a calendar date range. You can add map markers and timeline events right
-        after creation.
+        A destination and a few days are enough. Add dates, places and the rest of the group as the plan takes
+        shape.
       </p>
       <CreateTripForm enabled={enabled} />
     </section>

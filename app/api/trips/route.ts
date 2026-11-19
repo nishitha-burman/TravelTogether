@@ -1,16 +1,20 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { timezoneSchema } from "@/lib/schemas";
+import { missingFunction } from "@/lib/server/compatibility";
+import { mutationError } from "@/lib/api-response";
 import { getAuthedUser } from "@/lib/api-auth";
 
 const createTripSchema = z.object({
-  title: z.string().min(1).max(120),
+  timezone: timezoneSchema.nullable().optional(),
+  title: z.string().trim().min(1).max(120),
   city: z.string().min(1).max(120),
   planningMode: z.enum(["days", "date_range"]),
   tripLengthDays: z.number().int().min(1).max(60).optional(),
   startDate: z.string().date().optional(),
   endDate: z.string().date().optional(),
   isPublic: z.boolean(),
-  themeImageUrl: z.string().url().nullable().optional()
+  themeImageUrl: z.string().url().nullable().optional(),
 });
 
 export async function POST(request: Request) {
@@ -19,17 +23,23 @@ export async function POST(request: Request) {
     return auth.error;
   }
 
-  const body = await request.json();
+  const body = await request.json().catch(() => null);
   const parsed = createTripSchema.safeParse(body);
 
   if (!parsed.success) {
-    return NextResponse.json({ error: parsed.error.issues[0]?.message ?? "Invalid payload" }, { status: 400 });
+    return NextResponse.json(
+      { error: parsed.error.issues[0]?.message ?? "Invalid payload" },
+      { status: 400 },
+    );
   }
 
   let tripLengthDays = parsed.data.tripLengthDays ?? 0;
   if (parsed.data.planningMode === "date_range") {
     if (!parsed.data.startDate || !parsed.data.endDate) {
-      return NextResponse.json({ error: "Start and end date are required for date range mode" }, { status: 400 });
+      return NextResponse.json(
+        { error: "Start and end date are required for date range mode" },
+        { status: 400 },
+      );
     }
     const startDate = new Date(`${parsed.data.startDate}T00:00:00Z`);
     const endDate = new Date(`${parsed.data.endDate}T00:00:00Z`);
@@ -44,7 +54,20 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Trip length must be between 1 and 60 days" }, { status: 400 });
   }
 
-  const publicSlug = crypto.randomUUID().slice(0, 8);
+  const atomic = await auth.supabase.rpc("create_trip_plan", {
+    trip_title: parsed.data.title,
+    trip_city: parsed.data.city,
+    total_days: tripLengthDays,
+    first_date: parsed.data.planningMode === "date_range" ? parsed.data.startDate : null,
+    trip_timezone: parsed.data.timezone ?? null,
+    public_trip: parsed.data.isPublic,
+    image_url: parsed.data.themeImageUrl ?? null,
+  });
+  if (!atomic.error) return NextResponse.json({ id: atomic.data }, { status: 201 });
+  if (!missingFunction(atomic.error) || parsed.data.timezone)
+    return mutationError(atomic.error, "Could not create your trip. Please retry.");
+  // Compatibility: legacy creation remains available when no timezone was requested.
+  const publicSlug = crypto.randomUUID();
 
   const { data: trip, error } = await auth.supabase
     .from("itineraries")
@@ -54,12 +77,12 @@ export async function POST(request: Request) {
       city: parsed.data.city,
       destination: parsed.data.city,
       planning_mode: parsed.data.planningMode,
-      start_date: parsed.data.planningMode === "date_range" ? parsed.data.startDate ?? null : null,
-      end_date: parsed.data.planningMode === "date_range" ? parsed.data.endDate ?? null : null,
+      start_date: parsed.data.planningMode === "date_range" ? (parsed.data.startDate ?? null) : null,
+      end_date: parsed.data.planningMode === "date_range" ? (parsed.data.endDate ?? null) : null,
       trip_length_days: tripLengthDays,
       is_public: parsed.data.isPublic,
       public_slug: publicSlug,
-      theme_image_url: parsed.data.themeImageUrl ?? null
+      theme_image_url: parsed.data.themeImageUrl ?? null,
     })
     .select("id")
     .single();
@@ -75,14 +98,17 @@ export async function POST(request: Request) {
         trip_length_days: tripLengthDays,
         is_public: parsed.data.isPublic,
         public_slug: publicSlug,
-        theme_image_url: parsed.data.themeImageUrl ?? null
+        theme_image_url: parsed.data.themeImageUrl ?? null,
       })
       .select("id")
       .single();
     if (!fallback.error && fallback.data) {
       createdTrip = fallback.data;
     } else {
-      return NextResponse.json({ error: fallback.error?.message ?? "Failed to create trip" }, { status: 400 });
+      return NextResponse.json(
+        { error: fallback.error?.message ?? "Failed to create trip" },
+        { status: 400 },
+      );
     }
   } else if (error || !createdTrip) {
     return NextResponse.json({ error: error?.message ?? "Failed to create trip" }, { status: 400 });
@@ -100,19 +126,34 @@ export async function POST(request: Request) {
       itinerary_id: createdTrip.id,
       day_number: index + 1,
       label: null,
-      day_date: dayDate
+      day_date: dayDate,
     };
   });
 
-  const dayInsert = await auth.supabase.from("trip_days").insert(dayRows);
+  let dayInsert = await auth.supabase.from("trip_days").insert(dayRows);
   if (dayInsert.error && dayInsert.error.message.toLowerCase().includes("day_date")) {
     const fallbackDayRows = dayRows.map((row) => ({
       itinerary_id: row.itinerary_id,
       day_number: row.day_number,
-      label: row.label
+      label: row.label,
     }));
-    await auth.supabase.from("trip_days").insert(fallbackDayRows);
+    dayInsert = await auth.supabase.from("trip_days").insert(fallbackDayRows);
   }
 
+  if (dayInsert.error) {
+    const cleanup = await auth.supabase
+      .from("itineraries")
+      .delete()
+      .eq("id", createdTrip.id)
+      .eq("owner_id", auth.user.id);
+    return NextResponse.json(
+      {
+        error: cleanup.error
+          ? "The trip could not be completed. Open your trips to review it before retrying."
+          : "Could not create the trip days. Please retry.",
+      },
+      { status: 500 },
+    );
+  }
   return NextResponse.json({ id: createdTrip.id }, { status: 201 });
 }

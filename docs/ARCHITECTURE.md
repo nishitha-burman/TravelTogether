@@ -1,147 +1,53 @@
 # Architecture
 
-## Stack
-- Next.js App Router
-- React 19
-- TypeScript
-- Tailwind CSS
-- Supabase Auth, Postgres, and Storage
-- Google Maps iframe embeds for map rendering
+## Stack and entry points
 
-## App Structure
-- `app/layout.tsx`
-  - global shell, header, auth-aware nav, visible manual version label
-- `app/page.tsx`
-  - marketing-style landing page
-- `app/dashboard/page.tsx`
-  - authenticated trip listing
-  - auto-accepts pending invites for the current user's email
-- `app/trips/new/page.tsx`
-  - create itinerary flow
-- `app/trips/[id]/page.tsx`
-  - owner/member trip detail page
-  - renders sharing, map, and timeline editors
-- `app/public/[slug]/page.tsx`
-  - public read-only trip page
-- `app/api/**`
-  - mutation and helper APIs for trips, days, events, markers, settings, members, auth, location search, and calendar export
-- `app/api/trips/[id]/calendar/route.ts`
-  - authenticated read route that generates a downloadable `.ics` file
-  - relies on Supabase RLS so owners and accepted members with trip read access can export
-  - returns `422` when the timeline is empty, an event day has no date, or the legacy schema lacks `day_date`
-- `lib/components/**`
-  - client components for forms and editors
-- `lib/calendar/ics.ts`
-  - pure iCalendar serialization and filename helpers
-  - escapes text, folds long UTF-8 lines, assigns stable event UIDs, and maps timed/all-day events
-- `lib/**`
-  - auth helpers, Supabase client setup, trip access helpers
-- `supabase/migrations/**`
-  - schema and incremental evolution
+Next.js 15 App Router, React 19, TypeScript, Tailwind and Supabase (Auth/Postgres/Storage). Maps use Google iframe embeds. Temporal handles calendar timezone conversion.
 
-## Data Model
-Main tables from the Supabase migrations:
-- `profiles`
-- `itineraries`
-- `itinerary_members`
-- `itinerary_invites`
-- `trip_days`
-- `itinerary_events`
-- `itinerary_markers`
+- `app/layout.tsx`: shared shell, manual v1.4 label, skip link and navigation.
+- `app/dashboard/page.tsx`: invite acceptance, owner/member trip list, role/readiness/date grouping.
+- `app/trips/[id]/page.tsx`: explicit membership check, shared private repository, role-aware workspace.
+- `app/public/[slug]/page.tsx`: sanitized public RPC only; dynamic and fail-closed.
+- `lib/server/trip-data.ts`: private trip/timeline/place reads and legacy column fallbacks. Child-query failures are surfaced rather than silently empty.
+- `lib/components/timeline-editor.tsx`, `event-form.tsx`, `use-trip-mutation.ts`: progressive forms, safe pending state, retained input on error, `router.refresh()` after success.
+- `lib/components/calendar-export.tsx`: readiness, transactional date/timezone assignment, authenticated download with visible errors.
+- `lib/calendar/{time,readiness,ics}.ts`: shared readiness, UTC conversion, escaping/folding and revision-aware snapshots.
 
-Later schema additions include:
-- `itineraries.city`
-- `itineraries.planning_mode`
-- `itineraries.start_date`
-- `itineraries.end_date`
-- `trip_days.day_date`
+## Authorization
 
-## Auth and Access Model
-- `lib/supabase-server.ts` creates the server-side Supabase client using cookies.
-- `lib/supabase-client.ts` creates the browser client.
-- `lib/api-auth.ts`
-  - accepts either a bearer token or cookie-backed session
-  - provides `getAuthedUser()`
-  - provides `requireTripOwner()`
-- `lib/trips.ts`
-  - redirects unauthenticated users
-  - auto-accepts pending invites on dashboard load
+`lib/api-auth.ts` accepts bearer or cookie authentication. `getTripRole` explicitly checks ownership/membership and never treats public visibility as private access. `requireTripEditor` permits owner/editor content changes. `requireTripOwner` guards sharing, invitations, roles and trip deletion. Unauthenticated API requests get 401; authenticated requests without permission get 403. Clients use `getAuthJsonHeaders()`.
 
-Important behavior:
-- Read access is broader than write access due to RLS plus public trip support.
-- Most mutation routes still call `requireTripOwner()`, so only owners can edit timeline data, markers, sharing settings, and similar resources today.
+| Action | Owner | Editor | Viewer | Public |
+| --- | --- | --- | --- | --- |
+| Private itinerary / calendar snapshot | Yes | Yes | Yes | No |
+| Days, events, places, date assignment | Yes | Yes | No | No |
+| Visibility, invites, member roles, delete trip | Yes | No | No | No |
+| Sanitized public RPC | Public trips only | Public trips only | Public trips only | Public trips only |
 
-## Notable UI Components
-- `lib/components/create-trip-form.tsx`
-  - supports day-count and date-range planning modes
-  - supports destination autocomplete
-  - supports file upload to Supabase Storage bucket `trip-images`
-- `lib/components/map-editor.tsx`
-  - embeds Google Maps using a destination or selected place query
-  - exposes Google Maps points of interest such as restaurants and shops
-  - adds markers through location search and the trip markers API
-- `lib/components/timeline-editor.tsx`
-  - supports full and condensed views
-  - supports adding, editing, and deleting days and events
-  - event metadata varies by event type
-- `lib/components/sharing-settings.tsx`
-  - toggles public/private status
-  - creates private email invites
-- `lib/components/calendar-export.tsx`
-  - renders the trip-level `.ics` download action
-  - explains empty-timeline, undated-trip, and scaffold-mode limitations
+Migration 003 changes `can_access_itinerary` to private membership only, restricts member reads to self/owner, enables editor content policies, enforces same-trip event/day references, and provides atomic invite acceptance and owner-only collaborator listing. The owner can see collaborator emails through the dedicated RPC; raw profiles remain self-only.
 
-## Calendar Export
+Migration 004 adds timezone, event `updated_at`/`sequence`, revision/touch triggers, transactional create/append/delete/date-assignment RPCs and the public allowlist RPC. Security-definer functions use empty search paths, qualified relations, explicit caller checks and execute grants. Child writes update the trip’s update timestamp.
 
-Calendar export is a one-time, server-generated `.ics` download:
+## Calendar
 
-- Route: `GET /api/trips/[id]/calendar`
-- Content type: `text/calendar; charset=utf-8`
-- Cache policy: `private, no-store`
-- Access: authenticated users who can read the trip through existing RLS
-- Availability: timelines with at least one event where every event's `trip_days` row has `day_date`
+`GET /api/trips/[id]/calendar` checks private membership and shared readiness, then serves `text/calendar` with `private, no-store`. Timezone is required even for an all-day-only plan, making the readiness contract consistent. Timed events become UTC instants; all-day dates are timezone-independent. End <= start is overnight; no end means one elapsed hour. Clock-change ambiguities block export.
 
-Event mapping:
+Stable UID derives from event UUID. SEQUENCE/LAST-MODIFIED come from database revision fields. Deletion removes entries from future snapshots and cannot change previously imported files. Notes and booking data never leave through calendar/public projections. See [calendar ADR](CALENDAR_DELIVERY_ADR.md) for subscription/provider boundaries and the next implementation plan.
 
-- `title` → `SUMMARY`
-- `day_date` plus `start_time`/`end_time` → `DTSTART`/`DTEND`
-- no `start_time` → one-day all-day event
-- `start_time` without `end_time` → one-hour duration
-- an end time not later than the start time → following day
-- `metadata.location` → `LOCATION`
-- `notes` and `metadata.bookingUrl` → `DESCRIPTION`
-- event type → `CATEGORIES`
-- TravelTogether event ID → stable iCalendar `UID`
+## Compatibility and deployment
 
-The serializer deliberately omits confirmation codes, ticket references, transport details, and other unapproved metadata. Times are floating local date-times because the current schema has no trip timezone. Direct Google Calendar OAuth/API integration, calendar subscriptions, public export, and two-way synchronization are separate future features.
+Run migrations 001 → 002 → 003 → 004 before deploying v1.4. New security policies are a deployment prerequisite: application code alone cannot fix anonymous access through an unmigrated Supabase API.
 
-## Compatibility Patterns
-The code intentionally contains fallback logic for older schemas. Examples:
-- trip queries may retry without newer itinerary columns
-- `trip_days` queries may retry without `day_date`
-- itinerary creation may retry without newer columns
+Private trip reads retry without timezone, then without city/planning/date columns. Day reads retry without `day_date`; event reads retry without version columns. Legacy rows without timezone remain not ready for export. Legacy undated creation retains its fallback with explicit day failure handling and compensating trip cleanup. If a timezone was supplied, creation never silently discards it.
 
-Do not remove these fallbacks casually unless the deployment strategy has been updated and the older schema path is no longer needed.
+Unsafe multi-write day append/delete and invite acceptance are deliberately replaced by atomic RPCs: pre-004/pre-003 deployments receive a controlled unavailable response rather than an unsafe write. This is the documented migration prerequisite for retiring those mutation paths. Public reads have no raw-table fallback under any schema.
 
-## Scaffold Mode
-When Supabase env vars are missing:
-- pages still render with demo or placeholder data
-- auth and persistence are intentionally disabled
-- calendar export renders a disabled action with an explanatory message
-- this is used for frontend iteration without a live backend
+Migration 003 rejects existing cross-trip event/day references with a diagnostic; investigate and repair rather than deleting user data. Apply the two new migrations in order during the same release window. Back up first, run the local tests, and use a staging Supabase project for auth/storage/network integration before production. Roll back application code only if it understands private RLS; do not restore broad anonymous policies. Prefer a forward fix for migration errors.
 
-Any feature work should preserve this mode unless the team explicitly decides to remove it.
+## Cover images
 
-## Operational Notes
-- Build command: `npm run build`
-- Dev command: `npm run dev`
-- The visible app version is currently maintained manually in `app/layout.tsx`.
-- `package.json` version and visible product version can diverge.
+The bucket remains public by design: cover art must not contain private documents. New object paths start with the authenticated user ID because upload precedes trip creation. Inserts/deletes are restricted to that prefix; MIME types are JPG/PNG/WebP and the bucket limit is 5 MB. Confirmed creation failures clean up new uploads. Ambiguous network failures can leave orphan images; lifecycle cleanup and private signed-URL media remain backlog items. Existing remote HTTPS image URLs remain supported.
 
-## Change Guidance
-When changing behavior, keep the following in sync:
-- database schema
-- API routes
-- page-level server data fetching
-- client component assumptions
-- public-page and scaffold-mode behavior
+## Verification
+
+`npm test` runs Vitest, pure calendar/validation tests, mocked route auth/authorization tests and PGlite PostgreSQL migration/RLS/transaction tests. The harness supplies minimal Auth/Storage schemas and replaces only unavailable pgcrypto extension creation (core UUID generation remains). It does not emulate Supabase’s HTTP storage MIME enforcement, live cookie refresh, or multi-connection concurrency. `npm run lint`, `npm run typecheck` and `npm run build` are release checks. Scaffold browser QA covers the same page/components but cannot verify persisted authenticated writes.

@@ -1,131 +1,58 @@
+import { Temporal } from "@js-temporal/polyfill";
 import type { DayRow, EventRow } from "@/types/trip";
-
-type CalendarTrip = {
-  title: string;
-  destination: string;
-};
-
-type BuildTripCalendarOptions = {
-  trip: CalendarTrip;
+import { eventInstants } from "@/lib/calendar/time";
+import { calendarReadiness } from "@/lib/calendar/readiness";
+type Options = {
+  trip: { title: string; destination: string; timezone?: string | null };
   days: Pick<DayRow, "id" | "day_date">[];
   events: Pick<
     EventRow,
-    "id" | "day_id" | "title" | "event_type" | "start_time" | "end_time" | "notes" | "metadata"
+    | "id"
+    | "day_id"
+    | "title"
+    | "event_type"
+    | "start_time"
+    | "end_time"
+    | "metadata"
+    | "sequence"
+    | "updated_at"
   >[];
   generatedAt?: Date;
 };
-
 function escapeText(value: string) {
   return value
     .replace(/\\/g, "\\\\")
-    .replace(/\r?\n/g, "\\n")
+    .replace(/\r\n|\r|\n/g, "\\n")
     .replace(/,/g, "\\,")
-    .replace(/;/g, "\\;");
+    .replace(/;/g, "\\;")
+    .replace(/[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]/g, "");
 }
-
 function foldLine(line: string) {
-  const encoder = new TextEncoder();
   const chunks: string[] = [];
   let chunk = "";
-  let byteLength = 0;
-
+  let bytes = 0;
   for (const character of line) {
-    const characterLength = encoder.encode(character).length;
-    if (byteLength + characterLength > 75 && chunk) {
+    const size = new TextEncoder().encode(character).length;
+    if (bytes + size > 75 && chunk) {
       chunks.push(chunk);
-      chunk = ` ${character}`;
-      byteLength = 1 + characterLength;
-    } else {
-      chunk += character;
-      byteLength += characterLength;
+      chunk = " ";
+      bytes = 1;
     }
+    chunk += character;
+    bytes += size;
   }
-
-  if (chunk) chunks.push(chunk);
+  chunks.push(chunk);
   return chunks.join("\r\n");
 }
-
-function compactDate(date: string) {
-  return date.replaceAll("-", "");
-}
-
-function compactTime(time: string) {
-  const [hours = "00", minutes = "00", seconds = "00"] = time.split(":");
-  return `${hours}${minutes}${seconds}`;
-}
-
-function addMinutes(time: string, minutesToAdd: number) {
-  const [hours = "0", minutes = "0"] = time.split(":");
-  const totalMinutes = Number(hours) * 60 + Number(minutes) + minutesToAdd;
-  const wrappedMinutes = ((totalMinutes % 1440) + 1440) % 1440;
-  return {
-    time: `${String(Math.floor(wrappedMinutes / 60)).padStart(2, "0")}:${String(wrappedMinutes % 60).padStart(2, "0")}`,
-    dayOffset: Math.floor(totalMinutes / 1440)
-  };
-}
-
-function addDays(date: string, daysToAdd: number) {
-  const parsed = new Date(`${date}T00:00:00Z`);
-  parsed.setUTCDate(parsed.getUTCDate() + daysToAdd);
-  return parsed.toISOString().slice(0, 10);
-}
-
-function formatTimestamp(date: Date) {
-  return date.toISOString().replace(/[-:]/g, "").replace(/\.\d{3}Z$/, "Z");
-}
-
-function buildDescription(event: BuildTripCalendarOptions["events"][number]) {
-  const parts = [`TravelTogether ${event.event_type} event`];
-  if (event.notes?.trim()) parts.push(event.notes.trim());
-
-  const bookingUrl = event.metadata?.bookingUrl;
-  if (typeof bookingUrl === "string" && bookingUrl.trim()) {
-    parts.push(`Booking link: ${bookingUrl.trim()}`);
-  }
-
-  return parts.join("\n\n");
-}
-
-function buildEventLines(
-  dayDate: string,
-  event: BuildTripCalendarOptions["events"][number],
-  timestamp: string
-) {
-  const lines = [
-    "BEGIN:VEVENT",
-    `UID:${escapeText(`${event.id}@traveltogether.app`)}`,
-    `DTSTAMP:${timestamp}`,
-    `SUMMARY:${escapeText(event.title)}`,
-    `DESCRIPTION:${escapeText(buildDescription(event))}`
-  ];
-
-  const location = event.metadata?.location;
-  if (typeof location === "string" && location.trim()) {
-    lines.push(`LOCATION:${escapeText(location.trim())}`);
-  }
-
-  if (!event.start_time) {
-    lines.push(`DTSTART;VALUE=DATE:${compactDate(dayDate)}`);
-    lines.push(`DTEND;VALUE=DATE:${compactDate(addDays(dayDate, 1))}`);
-  } else {
-    const startTime = event.start_time;
-    const fallbackEnd = addMinutes(startTime, 60);
-    const endTime = event.end_time || fallbackEnd.time;
-    const endDayOffset =
-      event.end_time && compactTime(endTime) <= compactTime(startTime) ? 1 : event.end_time ? 0 : fallbackEnd.dayOffset;
-
-    lines.push(`DTSTART:${compactDate(dayDate)}T${compactTime(startTime)}`);
-    lines.push(`DTEND:${compactDate(addDays(dayDate, endDayOffset))}T${compactTime(endTime)}`);
-  }
-
-  lines.push(`CATEGORIES:${event.event_type.toUpperCase()}`);
-  lines.push("END:VEVENT");
-  return lines;
-}
-
-export function buildTripCalendar({ trip, days, events, generatedAt = new Date() }: BuildTripCalendarOptions) {
-  const datesByDayId = new Map(days.map((day) => [day.id, day.day_date]));
-  const timestamp = formatTimestamp(generatedAt);
+const timestamp = (value: string) =>
+  new Date(value)
+    .toISOString()
+    .replace(/[-:]/g, "")
+    .replace(/\.\d{3}Z$/, "Z");
+export function buildTripCalendar({ trip, days, events, generatedAt = new Date() }: Options) {
+  const readiness = calendarReadiness(trip.timezone, days, events);
+  if (!readiness.ready) throw new Error(readiness.issues.join(" "));
+  const dates = new Map(days.map((d) => [d.id, d.day_date!]));
   const lines = [
     "BEGIN:VCALENDAR",
     "VERSION:2.0",
@@ -133,27 +60,49 @@ export function buildTripCalendar({ trip, days, events, generatedAt = new Date()
     "CALSCALE:GREGORIAN",
     "METHOD:PUBLISH",
     `X-WR-CALNAME:${escapeText(trip.title)}`,
-    `X-WR-CALDESC:${escapeText(`${trip.title} · ${trip.destination}`)}`
+    `X-WR-TIMEZONE:${escapeText(trip.timezone!)}`,
   ];
-
-  for (const event of events) {
-    const dayDate = datesByDayId.get(event.day_id);
-    if (!dayDate) {
-      throw new Error("Every exported event must belong to a dated trip day.");
+  // Stable ordering makes equivalent snapshots comparable.
+  const ordered = [...events].sort((a, b) =>
+    `${dates.get(a.day_id)}${a.start_time ?? ""}${a.id}`.localeCompare(
+      `${dates.get(b.day_id)}${b.start_time ?? ""}${b.id}`,
+    ),
+  );
+  for (const event of ordered) {
+    const date = dates.get(event.day_id)!;
+    lines.push(
+      "BEGIN:VEVENT",
+      `UID:${escapeText(event.id)}@traveltogether.app`,
+      `DTSTAMP:${timestamp(generatedAt.toISOString())}`,
+      `LAST-MODIFIED:${timestamp(event.updated_at ?? generatedAt.toISOString())}`,
+      `SEQUENCE:${event.sequence ?? 0}`,
+      `SUMMARY:${escapeText(event.title)}`,
+      `DESCRIPTION:${escapeText(`${trip.title} · ${trip.destination}\nTimes planned in ${trip.timezone}.`)}`,
+      `CATEGORIES:${event.event_type.toUpperCase()}`,
+    );
+    const location = event.metadata?.location;
+    if (typeof location === "string" && location.trim())
+      lines.push(`LOCATION:${escapeText(location.trim())}`);
+    if (!event.start_time) {
+      lines.push(
+        `DTSTART;VALUE=DATE:${date.replaceAll("-", "")}`,
+        `DTEND;VALUE=DATE:${Temporal.PlainDate.from(date).add({ days: 1 }).toString().replaceAll("-", "")}`,
+      );
+    } else {
+      const range = eventInstants(date, event.start_time, event.end_time, trip.timezone!);
+      lines.push(`DTSTART:${timestamp(range.start.toString())}`, `DTEND:${timestamp(range.end.toString())}`);
     }
-    lines.push(...buildEventLines(dayDate, event, timestamp));
+    lines.push("END:VEVENT");
   }
-
   lines.push("END:VCALENDAR");
-  return `${lines.map(foldLine).join("\r\n")}\r\n`;
+  return lines.map(foldLine).join("\r\n") + "\r\n";
 }
-
 export function calendarFilename(title: string) {
-  const safeTitle = title
+  const safe = title
     .normalize("NFKD")
     .replace(/[^\w\s-]/g, "")
     .trim()
     .replace(/\s+/g, "-")
     .toLowerCase();
-  return `${safeTitle || "trip"}-calendar.ics`;
+  return `${safe || "trip"}-calendar.ics`;
 }

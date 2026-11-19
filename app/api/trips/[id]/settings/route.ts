@@ -11,7 +11,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     return auth.error;
   }
 
-  const payload = settingsSchema.safeParse(await request.json());
+  const payload = settingsSchema.safeParse(await request.json().catch(() => null));
   if (!payload.success) {
     return NextResponse.json({ error: "Invalid payload" }, { status: 400 });
   }
@@ -22,7 +22,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     .eq("id", id);
 
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 400 });
+    return NextResponse.json({ error: "Could not save this change. Please retry." }, { status: 400 });
   }
 
   return NextResponse.json({ ok: true });

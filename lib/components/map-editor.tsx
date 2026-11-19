@@ -1,10 +1,12 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import { getAuthJsonHeaders } from "@/lib/client-api";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useTripMutation } from "@/lib/components/use-trip-mutation";
 import type { MarkerRow } from "@/types/trip";
 
 type MapEditorProps = {
+  canEdit?: boolean;
+  scaffold?: boolean;
   tripId: string;
   markers: MarkerRow[];
   destination: string;
@@ -24,7 +26,16 @@ type GeocodedSuggestion = {
   longitude: number;
 };
 
-export function MapEditor({ tripId, markers, destination }: MapEditorProps) {
+export function MapEditor({
+  tripId,
+  markers,
+  destination,
+  canEdit = false,
+  scaffold = false,
+}: MapEditorProps) {
+  const addition = useTripMutation();
+  const removal = useTripMutation();
+  const nameInput = useRef<HTMLInputElement>(null);
   const [pending, setPending] = useState<PendingMarker | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [searchSuggestions, setSearchSuggestions] = useState<GeocodedSuggestion[]>([]);
@@ -32,12 +43,13 @@ export function MapEditor({ tripId, markers, destination }: MapEditorProps) {
   const [searchLoading, setSearchLoading] = useState(false);
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
-  const [error, setError] = useState<string | null>(null);
-  const [saving, setSaving] = useState(false);
+  const [searchError, setSearchError] = useState<string | null>(null);
+  const [searched, setSearched] = useState(false);
   const [googleMapQuery, setGoogleMapQuery] = useState(destination);
   const googleMapUrl = useMemo(
-    () => `https://www.google.com/maps?q=${encodeURIComponent(googleMapQuery || destination)}&z=15&output=embed`,
-    [destination, googleMapQuery]
+    () =>
+      `https://www.google.com/maps?q=${encodeURIComponent(googleMapQuery || destination)}&z=15&output=embed`,
+    [destination, googleMapQuery],
   );
   const normalizedSearch = searchQuery.trim().toLowerCase();
   const matchedExistingMarkers = useMemo(() => {
@@ -48,16 +60,19 @@ export function MapEditor({ tripId, markers, destination }: MapEditorProps) {
     });
   }, [markers, normalizedSearch]);
   useEffect(() => {
-    if (searchQuery.trim().length < 2) return;
+    if (searchQuery.trim().length < 2 || pending) return;
     const query = searchQuery.trim();
     const controller = new AbortController();
     const timeoutId = setTimeout(async () => {
       setSearchLoading(true);
       try {
         const cityParam = destination.trim() ? `&city=${encodeURIComponent(destination.trim())}` : "";
-        const response = await fetch(`/api/locations/search?q=${encodeURIComponent(query)}${cityParam}&kind=place`, {
-          signal: controller.signal
-        });
+        const response = await fetch(
+          `/api/locations/search?q=${encodeURIComponent(query)}${cityParam}&kind=place`,
+          {
+            signal: controller.signal,
+          },
+        );
         if (!response.ok) {
           throw new Error("Failed to search locations");
         }
@@ -66,10 +81,12 @@ export function MapEditor({ tripId, markers, destination }: MapEditorProps) {
         const suggestions = body.suggestions ?? [];
         setSearchSuggestions(suggestions);
         setShowSearchSuggestions(suggestions.length > 0);
+        setSearched(true);
       } catch {
         if (!controller.signal.aborted) {
           setSearchSuggestions([]);
           setShowSearchSuggestions(false);
+          setSearchError("Could not search places. Check your connection and try again.");
         }
       } finally {
         if (!controller.signal.aborted) {
@@ -82,51 +99,42 @@ export function MapEditor({ tripId, markers, destination }: MapEditorProps) {
       controller.abort();
       clearTimeout(timeoutId);
     };
-  }, [searchQuery, destination]);
+  }, [searchQuery, destination, pending]);
 
   async function addMarker(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!pending) return;
-
-    setSaving(true);
-    setError(null);
-
-    try {
-      const response = await fetch(`/api/trips/${tripId}/markers`, {
-        method: "POST",
-        headers: await getAuthJsonHeaders(),
-        body: JSON.stringify({
-          name,
-          description,
-          latitude: pending.latitude,
-          longitude: pending.longitude
-        })
-      });
-
-      if (!response.ok) {
-        const body = await response
-          .json()
-          .catch(() => ({ error: "Could not add marker. Please try again." })) as { error?: string };
-        setError(body.error || "Could not add marker");
-        return;
-      }
-
-      window.location.reload();
-    } catch (requestError) {
-      setError(requestError instanceof Error ? requestError.message : "Unexpected error while adding marker");
-    } finally {
-      setSaving(false);
-    }
+    if (!pending || scaffold) return;
+    await addition.mutate(
+      `/api/trips/${tripId}/markers`,
+      "POST",
+      {
+        name,
+        description,
+        latitude: pending.latitude,
+        longitude: pending.longitude,
+      },
+      () => {
+        setPending(null);
+        setName("");
+        setDescription("");
+        setSearchQuery("");
+        setSearched(false);
+      },
+    );
   }
 
   return (
-    <section className="space-y-3 rounded-xl bg-white/90 p-5 shadow-md ring-1 ring-[#ffd2e6]">
+    <section id="places" className="space-y-4 border-t border-[var(--line)] pt-6">
       <div>
-        <h2 className="text-xl font-semibold text-slate-900">Map markers</h2>
-        <p className="text-sm text-slate-700">Explore nearby restaurants, shops, and attractions on Google Maps, or search for a place to save.</p>
+        <h2 className="section-heading">Saved places</h2>
+        <p className="text-sm muted">
+          {canEdit
+            ? "Explore the map, or search for a place to keep with the plan."
+            : "Explore the places saved by your group."}
+        </p>
       </div>
 
-      <div className="relative h-[26rem] overflow-hidden rounded-2xl border border-slate-200 bg-slate-100 shadow-inner">
+      <div className="relative h-72 overflow-hidden rounded-sm border border-[var(--line)]">
         <iframe
           key={googleMapUrl}
           title={`Google Map of ${googleMapQuery || destination}`}
@@ -144,115 +152,163 @@ export function MapEditor({ tripId, markers, destination }: MapEditorProps) {
           <button
             type="button"
             onClick={() => setGoogleMapQuery(destination)}
-            className="rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 shadow-sm transition hover:border-[#ff8ab2] hover:bg-[#fff1f7]"
+            className="button-secondary text-xs"
           >
             {destination}
           </button>
           {markers.map((marker) => (
-            <button
-              key={marker.id}
-              type="button"
-              onClick={() => setGoogleMapQuery(`${marker.name}, ${destination}`)}
-              className="rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 shadow-sm transition hover:border-[#ff8ab2] hover:bg-[#fff1f7]"
-            >
-              📍 {marker.name}
-            </button>
+            <div key={marker.id} className="flex items-center gap-1">
+              <button
+                type="button"
+                onClick={() => setGoogleMapQuery(`${marker.name}, ${destination}`)}
+                className="button-secondary text-xs"
+              >
+                {marker.name}
+              </button>
+              {canEdit ? (
+                <button
+                  className="text-button"
+                  aria-label={`Remove ${marker.name}`}
+                  disabled={scaffold || removal.saving}
+                  onClick={() => {
+                    if (window.confirm(`Remove ${marker.name} from saved places?`))
+                      void removal.mutate(`/api/trips/${tripId}/markers`, "DELETE", { markerId: marker.id });
+                  }}
+                >
+                  ×
+                </button>
+              ) : null}
+            </div>
           ))}
         </div>
       ) : null}
 
-      <div className="relative">
-        <label className="text-sm font-medium text-slate-800">
-          Search place
-          <input
-            value={searchQuery}
-            onChange={(event) => setSearchQuery(event.target.value)}
-            onFocus={() => {
-              if (searchSuggestions.length > 0) {
-                setShowSearchSuggestions(true);
-              }
-            }}
-            onBlur={() => {
-              setTimeout(() => setShowSearchSuggestions(false), 100);
-            }}
-            placeholder="Search hotels, landmarks, neighborhoods..."
-            className="mt-1 w-full rounded-md border border-slate-300 bg-slate-50 px-3 py-2 outline-none transition focus:border-[#ff6a3d] focus:ring-2 focus:ring-[#ffd2e6]"
-          />
-        </label>
-        {showSearchSuggestions ? (
-          <div className="absolute z-20 mt-1 w-full rounded-md border border-[#ffd2e6] bg-white shadow-lg">
-            <ul className="max-h-60 overflow-y-auto py-1">
-              {searchSuggestions.map((suggestion) => (
-                <li key={suggestion.id}>
-                  <button
-                    type="button"
-                    className="w-full px-3 py-2 text-left transition hover:bg-[#fff1f7]"
-                    onMouseDown={(event) => event.preventDefault()}
-                    onClick={() => {
-                      setSearchQuery(suggestion.label);
-                      setPending({
-                        latitude: suggestion.latitude,
-                        longitude: suggestion.longitude
-                      });
-                      setGoogleMapQuery(`${suggestion.label}, ${destination}`);
-                      setName(suggestion.location);
-                      setShowSearchSuggestions(false);
-                      setSearchSuggestions([]);
-                    }}
-                  >
-                    <span className="block font-medium text-slate-900">{suggestion.location}</span>
-                    <span className="block text-sm text-slate-600">{suggestion.country}</span>
-                  </button>
-                </li>
-              ))}
-            </ul>
+      {canEdit ? (
+        <>
+          <div className="relative">
+            <label className="field-label">
+              Search place
+              <input
+                value={searchQuery}
+                onChange={(event) => {
+                  setSearchQuery(event.target.value);
+                  setPending(null);
+                  setSearchSuggestions([]);
+                  setShowSearchSuggestions(false);
+                  setSearchLoading(false);
+                  setSearchError(null);
+                  setSearched(false);
+                }}
+                onFocus={() => {
+                  if (searchSuggestions.length > 0) {
+                    setShowSearchSuggestions(true);
+                  }
+                }}
+                onKeyDown={(event) => {
+                  if (event.key === "Escape") setShowSearchSuggestions(false);
+                }}
+                placeholder="Search hotels, landmarks, neighborhoods..."
+                className="field"
+              />
+            </label>
+            {showSearchSuggestions ? (
+              <div className="absolute z-20 mt-1 w-full rounded-md border border-[var(--line)] bg-white shadow-lg">
+                <ul className="max-h-60 overflow-y-auto py-1">
+                  {searchSuggestions.map((suggestion) => (
+                    <li key={suggestion.id}>
+                      <button
+                        type="button"
+                        className="w-full px-3 py-2 text-left transition hover:bg-[#edf0e9]"
+                        onMouseDown={(event) => event.preventDefault()}
+                        onClick={() => {
+                          setSearchQuery(suggestion.label);
+                          setPending({
+                            latitude: suggestion.latitude,
+                            longitude: suggestion.longitude,
+                          });
+                          setGoogleMapQuery(`${suggestion.label}, ${destination}`);
+                          setName(suggestion.location);
+                          setShowSearchSuggestions(false);
+                          setSearchSuggestions([]);
+                          nameInput.current?.focus();
+                        }}
+                      >
+                        <span className="block font-medium">{suggestion.location}</span>
+                        <span className="block text-sm muted">{suggestion.country}</span>
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ) : null}
+            {searchLoading ? (
+              <p className="mt-1 text-xs muted" role="status">
+                Searching places near {destination}…
+              </p>
+            ) : null}
+            {searchError ? (
+              <p className="error mt-2" role="alert">
+                {searchError}
+              </p>
+            ) : null}
+            {searched && !pending && !searchLoading && searchSuggestions.length === 0 ? (
+              <p className="mt-2 text-sm muted" role="status">
+                No places found. Try a nearby landmark or a more specific name.
+              </p>
+            ) : null}
+            {normalizedSearch && matchedExistingMarkers.length > 0 ? (
+              <p className="mt-1 text-xs muted">Already saved: {matchedExistingMarkers.length}</p>
+            ) : null}
           </div>
-        ) : null}
-        {searchLoading ? <p className="mt-1 text-xs text-slate-700">Searching places near {destination}...</p> : null}
-        {normalizedSearch && matchedExistingMarkers.length > 0 ? (
-          <p className="mt-1 text-xs text-slate-700">
-            Matching existing markers: {matchedExistingMarkers.length}
-          </p>
-        ) : null}
-      </div>
 
-      <form onSubmit={addMarker} className="grid gap-3 md:grid-cols-2">
-        <label className="text-sm font-medium text-slate-800">
-          Name
-          <input
-            className="mt-1 w-full rounded-md border border-slate-300 bg-slate-50 px-3 py-2 outline-none transition focus:border-[#ff6a3d] focus:ring-2 focus:ring-[#ffd2e6]"
-            value={name}
-            onChange={(event) => setName(event.target.value)}
-            required
-          />
-        </label>
-        <label className="text-sm font-medium text-slate-800">
-          Description
-          <input
-            className="mt-1 w-full rounded-md border border-slate-300 bg-slate-50 px-3 py-2 outline-none transition focus:border-[#ff6a3d] focus:ring-2 focus:ring-[#ffd2e6]"
-            value={description}
-            onChange={(event) => setDescription(event.target.value)}
-            placeholder="Optional"
-          />
-        </label>
-        <button
-          type="submit"
-          disabled={!pending || saving}
-          className="w-fit rounded-md bg-gradient-to-r from-[#ff6a3d] to-[#ff4f8b] px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:from-[#ff7b52] hover:to-[#ff62a0] disabled:opacity-60"
-        >
-          {saving ? "Saving..." : "Add marker"}
-        </button>
-      </form>
+          <form onSubmit={addMarker} className="grid gap-3 md:grid-cols-2">
+            <label className="field-label">
+              Name
+              <input
+                className="field"
+                ref={nameInput}
+                value={name}
+                onChange={(event) => setName(event.target.value)}
+                required
+              />
+            </label>
+            <label className="field-label">
+              Description
+              <input
+                className="field"
+                value={description}
+                onChange={(event) => setDescription(event.target.value)}
+                placeholder="Optional"
+              />
+            </label>
+            <button type="submit" disabled={!pending || addition.saving || scaffold} className="button w-fit">
+              {addition.saving ? "Saving…" : "Save place"}
+            </button>
+          </form>
 
-      {pending ? (
-        <p className="text-xs text-slate-700">
-          Selected coordinates: {pending.latitude.toFixed(4)}, {pending.longitude.toFixed(4)}
+          {pending ? (
+            <p className="text-xs muted">Selected place: {name}</p>
+          ) : (
+            <p className="text-xs muted">Search for a place, then select a result to save it.</p>
+          )}
+        </>
+      ) : null}
+      {removal.error ? (
+        <p role="alert" className="error">
+          {removal.error}
         </p>
-      ) : (
-        <p className="text-xs text-slate-700">No location selected yet.</p>
-      )}
-
-      {error ? <p className="text-sm text-red-600">{error}</p> : null}
+      ) : null}
+      <p role="status" className="status">
+        {removal.status}
+      </p>
+      <p role="status" className="status">
+        {addition.status}
+      </p>
+      {addition.error ? (
+        <p role="alert" className="error">
+          {addition.error}
+        </p>
+      ) : null}
     </section>
   );
 }

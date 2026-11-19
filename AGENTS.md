@@ -29,7 +29,20 @@ TravelTogether is a collaborative travel itinerary planner built with Next.js an
   - owner/member trip page at `/trips/[id]`
   - public shared page at `/public/[slug]`
   - dashboard summary cards
-- Run `npm run build` before finishing.
+- Run `npm run build` before committing or deploying app changes, not for every small edit or documentation-only change.
+
+## Efficient Agent Workflow
+- For questions, answer directly. Use tools only when verification is necessary.
+- For small changes, read only relevant files or sections. Avoid full repository audits.
+- Reuse context and previous verification; do not repeat unchanged checks.
+- Keep tool output focused. Avoid full file dumps, browser trees, and logs.
+- Use the smallest meaningful verification for each change.
+- Run a production build before committing or deploying app changes, not for every small edit or documentation-only change.
+- For UI changes, inspect the changed screen once. Expand testing only when shared behavior changed or a failure appears.
+- Do not add unrelated cleanup, features, tests, or documentation.
+- Do not delegate to other agents unless requested.
+- Keep updates and final responses concise.
+- Preserve required security checks and approval boundaries.
 
 ## Good Next Areas
 - Real collaborator editing instead of owner-only writes

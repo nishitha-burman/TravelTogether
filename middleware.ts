@@ -6,9 +6,12 @@ import { createFetchWithTimeout } from "@/lib/fetch-with-timeout";
 const SUPABASE_MIDDLEWARE_TIMEOUT_MS = 3_000;
 
 function hasSupabaseSessionCookie(request: NextRequest) {
-  return request.cookies.getAll().some(({ name }) =>
-    name.startsWith("sb-") && (name.endsWith("-auth-token") || /-auth-token\.\d+$/.test(name))
-  );
+  return request.cookies
+    .getAll()
+    .some(
+      ({ name }) =>
+        name.startsWith("sb-") && (name.endsWith("-auth-token") || /-auth-token\.\d+$/.test(name)),
+    );
 }
 
 export async function middleware(request: NextRequest) {
@@ -23,7 +26,7 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next({ request });
   }
 
-  let response = NextResponse.next({ request });
+  const response = NextResponse.next({ request });
   type SetCookie = {
     name: string;
     value: string;
@@ -35,7 +38,7 @@ export async function middleware(request: NextRequest) {
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
       global: {
-        fetch: createFetchWithTimeout(SUPABASE_MIDDLEWARE_TIMEOUT_MS)
+        fetch: createFetchWithTimeout(SUPABASE_MIDDLEWARE_TIMEOUT_MS),
       },
       cookies: {
         getAll() {
@@ -46,9 +49,9 @@ export async function middleware(request: NextRequest) {
             request.cookies.set(cookie.name, cookie.value);
             response.cookies.set(cookie.name, cookie.value, cookie.options);
           });
-        }
-      }
-    }
+        },
+      },
+    },
   );
 
   try {
@@ -56,7 +59,7 @@ export async function middleware(request: NextRequest) {
   } catch (error) {
     console.error(
       "Supabase session refresh failed in middleware",
-      error instanceof Error ? error.message : "Unknown error"
+      error instanceof Error ? error.message : "Unknown error",
     );
   }
 
@@ -64,5 +67,5 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)"]
+  matcher: ["/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)"],
 };

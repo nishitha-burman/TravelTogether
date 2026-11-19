@@ -1,119 +1,75 @@
 # TravelTogether
 
-TravelTogether is a Next.js + Supabase app for collaborative travel planning.
+A shared travel itinerary, from the first idea to each traveler’s calendar.
 
-## Agent context docs
-- `AGENTS.md` - starting point for AI coding agents
-- `docs/PRODUCT_CONTEXT.md` - product goals, user journeys, limitations
-- `docs/ARCHITECTURE.md` - codebase structure, data model, auth and implementation notes
-- `docs/PRODUCT_BACKLOG.md` - prioritized product roadmap and acceptance criteria
-- `docs/ENGINEERING_BACKLOG.md` - implementation and infrastructure backlog
-
-## Core functionality implemented
-- Email/password sign up and login with Supabase Auth
-- Auth-protected dashboard with shared/private trip access
-- Create itineraries with:
-  - destination
-  - themed image URL or uploaded image (Supabase Storage bucket `trip-images`)
-  - trip length (days)
-  - private/public visibility
-- Private trips shared by invite email
-- Public trips viewable by link (`/public/[slug]`)
-- Embedded Google Maps with nearby points of interest and itinerary place search
-- Flexible timeline:
-  - day-by-day structure
-  - add extra days
-  - event types (`stay`, `museum`, `travel`, `food`, `activity`, `custom`)
-  - event-type custom fields (stored as JSON metadata)
-  - full vs condensed trip length views
-- Portable calendar export for date-range trips:
-  - downloads the full timeline as an `.ics` file
-  - supports timed and all-day events, locations, notes, and booking links
-  - uses the portable iCalendar format supported by Google Calendar, Apple Calendar, Outlook, and other calendar apps
-  - excludes confirmation codes and ticket references
-
-## Stack
-- Next.js App Router (TypeScript)
-- Supabase Auth, Postgres (RLS), Storage
-- Tailwind CSS
-- React Leaflet
+Next.js App Router + React + TypeScript + Tailwind + Supabase. Owners invite editors or viewers; groups plan days, events and places, then assign dates and an explicit timezone and download a private calendar snapshot.
 
 ## Local setup
-1. Install Node.js 20+
-2. Install dependencies:
-   ```bash
-   npm install
-   ```
-3. Copy env vars:
-   ```bash
-   cp .env.example .env.local
-   ```
-4. Fill in Supabase values in `.env.local`
-5. Run the Supabase migrations in filename order:
+
+1. Use Node.js 22.12+ and run `npm ci`.
+2. Copy `.env.example` to `.env.local` and set the Supabase URL/anon key. Leave those variables absent or empty for frontend scaffold mode.
+3. Apply SQL migrations in order to a backed-up staging database, then production:
    - `supabase/migrations/001_init_triptogether.sql`
    - `supabase/migrations/002_itinerary_planning_and_editing.sql`
-6. Start dev server:
-   ```bash
-   npm run dev
-   ```
+   - `supabase/migrations/003_private_collaboration.sql`
+   - `supabase/migrations/004_calendar_ready_planning.sql`
+4. Enable Supabase Email Auth and configure the site/redirect URLs.
+5. Run `npm run dev` and open the printed local URL.
 
-### If dashboard shows "Could not find table public.itineraries"
-- This means your app is connected to Supabase Auth, but your database schema migration has not been applied in that project yet.
-- In Supabase Dashboard, open SQL Editor and run:
-  - `supabase/migrations/001_init_triptogether.sql`
-- Refresh the app after it finishes.
-- To verify setup, run this query in SQL Editor:
-  ```sql
-  select table_name
-  from information_schema.tables
-  where table_schema = 'public'
-    and table_name in (
-      'profiles',
-      'itineraries',
-      'itinerary_members',
-      'itinerary_invites',
-      'trip_days',
-      'itinerary_events',
-      'itinerary_markers'
-    )
-  order by table_name;
-  ```
+**Apply 003 and 004 before deploying v1.4.** The privacy fix depends on database policies, not just the new UI. Old public pages are intentionally unavailable without the sanitized RPC. Day restructuring, invite acceptance and date assignment require the new transactional functions. Private legacy reads still have schema fallbacks. See [deployment notes](docs/ARCHITECTURE.md).
 
-### Frontend scaffold mode (no Supabase yet)
-- If you do not set Supabase env vars, the app now runs in scaffold mode.
-- You can browse the frontend (`/`, `/dashboard`, `/trips/new`, `/trips/[id]`, `/public/[slug]`) with mock content.
-- Auth and persistence actions are intentionally disabled until Supabase is configured.
+## What works
 
-## Supabase notes
-- Ensure Email auth provider is enabled.
-- Storage bucket `trip-images` is created by the migration.
-- RLS policies are included for all core tables.
+- Day-count or date-range trip creation; dates/timezone can be assigned later.
+- Owner/editor/viewer roles enforced in APIs and RLS. Owners manage invitations, membership, public links and deletion.
+- Timeline and saved-place editing without full-page reloads; pending/saved/error states and retained failed inputs.
+- Dashboard roles, date grouping, update dates and calendar readiness.
+- Sanitized public itineraries, with private booking data and traveler identities excluded at the database boundary.
+- Timezone-correct `.ics` downloads with stable IDs, revisions, all-day and overnight events. Notes and booking details are excluded.
+- Public cover images limited to JPG/PNG/WebP and 5 MB, with user-scoped upload/delete policies.
 
-## Future phases (planned)
-- Direct Google Calendar connection and automatic event updates
-- Public-page and individual-event calendar exports
-- Explicit trip timezone and overnight/multi-timezone event modeling
-- Subscribe-to-calendar feeds with automatic updates
-- Photo uploads with per-user/per-trip limits and moderation workflow
-- Better real-time collaboration and change history
+A downloaded calendar is a **one-time snapshot**. It does not update when the itinerary changes, and repeated imports may create duplicates. Subscriptions and Google/Microsoft connections are not implemented. [Calendar architecture and next release](docs/CALENDAR_DELIVERY_ADR.md).
 
-## Deploy on Vercel
-1. Push repo to GitHub.
-2. Import project in Vercel.
-3. Set environment variables:
-   - `NEXT_PUBLIC_SUPABASE_URL`
-   - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
-   - `NEXT_PUBLIC_SITE_URL` (your Vercel domain)
-4. Deploy.
-5. In Supabase Auth settings, add your Vercel URL to redirect URLs.
+Invitations do not send email; the invited traveler signs in with the confirmed matching email and opens Your trips to accept. Existing viewer invitations stay viewers.
 
-## Verification
+## Scaffold preview
 
-Before finishing a change, run:
+Run `npm run dev:preview` and open http://127.0.0.1:3100/dashboard. This command temporarily clears the Supabase variables without modifying `.env.local`.
 
-```bash
+The Honolulu example covers November 4–8, 2026 in `Pacific/Honolulu`, with the traveler's hotel, beach, food stops, Pearl Harbor/USS Arizona, and Saturday market/Diamond Head visits. Other day placements are tentative; no booking times or references are invented. Untimed entries display as all-day. Honolulu appears under **Past trips**; Kyoto remains an undated example. Older Lisbon preview URLs still render the current example.
+
+With Supabase variables unset, browse `/`, `/dashboard`, `/trips/new`, `/trips/demo-honolulu`, `/trips/demo-kyoto`, and `/public/demo-honolulu`. Sample trips use the real workspace, including owner/editor/viewer preview links. Saving, sign-in and downloads are disabled. External imagery/maps still need a network connection.
+
+### What to try
+
+1. Open Honolulu from **Past trips** and check the five dates, timezone, nine activities, and saved places.
+2. Switch **Owner / Editor / Viewer** at the top. Owners see sharing controls; editors can explore event forms; viewers have no editing controls.
+3. Open **Add event**, switch categories, inspect the optional booking fields, and cancel. The preview intentionally disables saving and calendar download.
+4. Open `/public/demo-honolulu` to check the read-only view without group notes or booking details. Open Kyoto to see calendar readiness for an undated trip.
+5. To test persistence, stop the preview server, complete the Supabase setup above against staging, and run `npm run dev`. Create a separate test trip, save and reload an event, invite confirmed editor/viewer accounts, and check their permissions. Download a calendar snapshot from the private trip and inspect the dates in your calendar app. Preview examples are not inserted into your database.
+
+## Checks
+
+```sh
+npm test
+npm run lint
 npm run typecheck
 npm run build
 ```
 
-The repository does not currently have an automated test suite. The calendar export implementation was verified with both commands above.
+Tests cover calendar dates/timezones/DST/escaping/privacy, cookie/bearer route authorization, migration/RLS behavior and transactional day/invitation changes. Database tests run locally with PGlite, without production credentials. Live Supabase Auth/Storage and calendar-client import checks still require staging accounts; see [verification record](docs/RELEASE_VERIFICATION.md).
+
+## Project guide
+
+- [AGENTS.md](AGENTS.md)
+- [Product context](docs/PRODUCT_CONTEXT.md)
+- [Architecture and compatibility](docs/ARCHITECTURE.md)
+- [Release audit and phased plan](docs/RELEASE_AUDIT.md)
+- [Product backlog](docs/PRODUCT_BACKLOG.md)
+- [Engineering backlog](docs/ENGINEERING_BACKLOG.md)
+
+The visible v1.4 label is maintained manually in `app/layout.tsx`; it is not derived from package.json.
+
+## Vercel
+
+Import the repository, set `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, and `NEXT_PUBLIC_SITE_URL`, apply migrations, and deploy. Add the deployment origin to Supabase Auth’s allowed redirect URLs. Do not use the service-role key in browser configuration.

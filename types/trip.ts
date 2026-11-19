@@ -24,6 +24,7 @@ export type TripRow = {
   start_date: string | null;
   end_date: string | null;
   trip_length_days: number;
+  timezone?: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -37,6 +38,8 @@ export type DayRow = {
 };
 
 export type EventRow = {
+  updated_at?: string;
+  sequence?: number;
   id: string;
   itinerary_id: string;
   day_id: string;

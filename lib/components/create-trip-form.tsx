@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createSupabaseBrowserClient } from "@/lib/supabase-client";
+import { TimezoneField, suggestedTimezone } from "@/lib/components/timezone-field";
 import { getAuthJsonHeaders } from "@/lib/client-api";
 
 type CreateTripFormProps = {
@@ -19,6 +20,8 @@ type DestinationSuggestion = {
 export function CreateTripForm({ enabled = true }: CreateTripFormProps) {
   const router = useRouter();
 
+  const [timezone, setTimezone] = useState("");
+  const uploadedPath = useRef<string | null>(null);
   const [title, setTitle] = useState("");
   const [city, setCity] = useState("");
   const [destinationSuggestions, setDestinationSuggestions] = useState<DestinationSuggestion[]>([]);
@@ -51,33 +54,36 @@ export function CreateTripForm({ enabled = true }: CreateTripFormProps) {
 
     const controller = new AbortController();
     setDestinationLoading(true);
-    void (async () => {
-      try {
-        const response = await fetch(`/api/locations/search?q=${encodeURIComponent(query)}`, {
-          signal: controller.signal
-        });
+    const timeout = setTimeout(() => {
+      void (async () => {
+        try {
+          const response = await fetch(`/api/locations/search?q=${encodeURIComponent(query)}`, {
+            signal: controller.signal,
+          });
 
-        if (!response.ok) {
-          throw new Error("Failed to fetch destinations");
-        }
+          if (!response.ok) {
+            throw new Error("Failed to fetch destinations");
+          }
 
-        const body = (await response.json()) as { suggestions?: DestinationSuggestion[] };
-        const suggestions = body.suggestions ?? [];
-        setDestinationSuggestions(suggestions);
-        setShowDestinationSuggestions(suggestions.length > 0);
-      } catch {
-        if (!controller.signal.aborted) {
-          setDestinationSuggestions([]);
-          setShowDestinationSuggestions(false);
+          const body = (await response.json()) as { suggestions?: DestinationSuggestion[] };
+          const suggestions = body.suggestions ?? [];
+          setDestinationSuggestions(suggestions);
+          setShowDestinationSuggestions(suggestions.length > 0);
+        } catch {
+          if (!controller.signal.aborted) {
+            setDestinationSuggestions([]);
+            setShowDestinationSuggestions(false);
+          }
+        } finally {
+          if (!controller.signal.aborted) {
+            setDestinationLoading(false);
+          }
         }
-      } finally {
-        if (!controller.signal.aborted) {
-          setDestinationLoading(false);
-        }
-      }
-    })();
+      })();
+    }, 300);
 
     return () => {
+      clearTimeout(timeout);
       controller.abort();
     };
   }, [city]);
@@ -86,20 +92,30 @@ export function CreateTripForm({ enabled = true }: CreateTripFormProps) {
     if (!themeFile) return themeImageUrl || null;
     const supabase = createSupabaseBrowserClient();
 
-    const ext = themeFile.name.split(".").pop() || "jpg";
-    const fileName = `${crypto.randomUUID()}.${ext}`;
+    if (
+      !["image/jpeg", "image/png", "image/webp"].includes(themeFile.type) ||
+      themeFile.size > 5 * 1024 * 1024
+    )
+      throw new Error("Choose a JPG, PNG or WebP image under 5 MB.");
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) throw new Error("Sign in again to upload a cover image.");
+    const ext = themeFile.type === "image/jpeg" ? "jpg" : themeFile.type === "image/png" ? "png" : "webp";
+    const fileName = `${user.id}/${crypto.randomUUID()}.${ext}`;
 
     const { error: uploadError } = await supabase.storage.from("trip-images").upload(fileName, themeFile, {
       cacheControl: "3600",
-      upsert: false
+      upsert: false,
     });
 
     if (uploadError) {
       throw new Error(uploadError.message);
     }
 
+    uploadedPath.current = fileName;
     const {
-      data: { publicUrl }
+      data: { publicUrl },
     } = supabase.storage.from("trip-images").getPublicUrl(fileName);
 
     return publicUrl;
@@ -108,7 +124,7 @@ export function CreateTripForm({ enabled = true }: CreateTripFormProps) {
   async function onSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!enabled) {
-      setError("Supabase is not configured yet. This is scaffold-only mode.");
+      setError("This is a sample planning form. Your changes aren’t saved.");
       return;
     }
 
@@ -123,18 +139,24 @@ export function CreateTripForm({ enabled = true }: CreateTripFormProps) {
         headers: await getAuthJsonHeaders(),
         body: JSON.stringify({
           title,
+          timezone: timezone || null,
           city,
           planningMode,
           tripLengthDays: planningMode === "days" ? tripLengthDays : undefined,
           startDate: planningMode === "date_range" ? startDate : undefined,
           endDate: planningMode === "date_range" ? endDate : undefined,
           isPublic,
-          themeImageUrl: finalThemeImageUrl
-        })
+          themeImageUrl: finalThemeImageUrl,
+        }),
       });
 
       if (!response.ok) {
         const body = await response.json();
+        if (uploadedPath.current) {
+          const client = createSupabaseBrowserClient();
+          await client.storage.from("trip-images").remove([uploadedPath.current]);
+          uploadedPath.current = null;
+        }
         throw new Error(body.error || "Failed to create trip");
       }
 
@@ -149,13 +171,13 @@ export function CreateTripForm({ enabled = true }: CreateTripFormProps) {
   }
 
   return (
-    <form onSubmit={onSubmit} className="space-y-4 rounded-2xl bg-white/90 p-6 shadow-md ring-1 ring-[#ffd2e6]">
+    <form onSubmit={onSubmit} className="space-y-5">
       <label className="block text-sm font-medium text-slate-800">
         Trip title
         <input
           value={title}
           onChange={(event) => setTitle(event.target.value)}
-          className="mt-1 w-full rounded-md border border-slate-300 bg-slate-50 px-3 py-2 outline-none transition focus:border-[#ff6a3d] focus:ring-2 focus:ring-[#ffd2e6]"
+          className="field"
           placeholder="Summer in Lisbon"
           required
         />
@@ -163,7 +185,7 @@ export function CreateTripForm({ enabled = true }: CreateTripFormProps) {
 
       <div className="relative">
         <label className="block text-sm font-medium text-slate-800">
-          City
+          Destination
           <input
             value={city}
             onChange={(event) => setCity(event.target.value)}
@@ -173,27 +195,31 @@ export function CreateTripForm({ enabled = true }: CreateTripFormProps) {
               }
             }}
             onBlur={() => {
-              setTimeout(() => setShowDestinationSuggestions(false), 100);
+              // Keep the result buttons reachable by keyboard.
+            }}
+            onKeyDown={(event) => {
+              if (event.key === "Escape") setShowDestinationSuggestions(false);
             }}
             autoComplete="off"
-            className="mt-1 w-full rounded-md border border-slate-300 bg-slate-50 px-3 py-2 outline-none transition focus:border-[#ff6a3d] focus:ring-2 focus:ring-[#ffd2e6]"
+            className="field"
             placeholder="Lisbon, Portugal"
             required
           />
         </label>
 
         {showDestinationSuggestions ? (
-          <div className="absolute z-10 mt-1 w-full rounded-md border border-[#ffd2e6] bg-white shadow-lg">
-            <ul className="max-h-64 overflow-y-auto py-1" role="listbox" aria-label="Destination suggestions">
+          <div className="absolute z-10 mt-1 w-full rounded-md border border-[var(--line)] bg-white shadow-lg">
+            <ul className="max-h-64 overflow-y-auto py-1" aria-label="Destination suggestions">
               {destinationSuggestions.map((suggestion) => (
                 <li key={suggestion.id}>
                   <button
                     type="button"
-                    className="w-full px-3 py-2 text-left transition hover:bg-[#fff1f7]"
+                    className="w-full px-3 py-2 text-left transition hover:bg-[#edf0e9]"
                     onMouseDown={(event) => event.preventDefault()}
                     onClick={() => {
                       skipNextLookupRef.current = true;
                       setCity(suggestion.label);
+                      if (!timezone) setTimezone(suggestedTimezone(suggestion.location) ?? "");
                       setShowDestinationSuggestions(false);
                       setDestinationSuggestions([]);
                     }}
@@ -206,11 +232,13 @@ export function CreateTripForm({ enabled = true }: CreateTripFormProps) {
             </ul>
           </div>
         ) : null}
-        {destinationLoading ? <p className="mt-1 text-xs text-slate-700">Looking up destinations...</p> : null}
+        {destinationLoading ? (
+          <p className="mt-1 text-xs text-slate-700">Looking up destinations...</p>
+        ) : null}
       </div>
 
       <fieldset className="space-y-2">
-        <legend className="text-sm font-medium text-slate-800">Planning mode</legend>
+        <legend className="text-sm font-medium text-slate-800">When are you going?</legend>
         <label className="flex items-center gap-2 text-sm text-slate-800">
           <input
             type="radio"
@@ -218,9 +246,9 @@ export function CreateTripForm({ enabled = true }: CreateTripFormProps) {
             value="days"
             checked={planningMode === "days"}
             onChange={() => setPlanningMode("days")}
-            className="h-4 w-4 accent-[#ff4f8b]"
+            className="h-4 w-4 accent-[#263c35]"
           />
-          Plan by number of days
+          Dates are still open
         </label>
         <label className="flex items-center gap-2 text-sm text-slate-800">
           <input
@@ -229,9 +257,9 @@ export function CreateTripForm({ enabled = true }: CreateTripFormProps) {
             value="date_range"
             checked={planningMode === "date_range"}
             onChange={() => setPlanningMode("date_range")}
-            className="h-4 w-4 accent-[#ff4f8b]"
+            className="h-4 w-4 accent-[#263c35]"
           />
-          Plan by calendar date range
+          I know the dates
         </label>
       </fieldset>
 
@@ -244,7 +272,7 @@ export function CreateTripForm({ enabled = true }: CreateTripFormProps) {
             max={60}
             value={tripLengthDays}
             onChange={(event) => setTripLengthDays(Number(event.target.value))}
-            className="mt-1 w-full rounded-md border border-slate-300 bg-slate-50 px-3 py-2 outline-none transition focus:border-[#ff6a3d] focus:ring-2 focus:ring-[#ffd2e6]"
+            className="field"
             required
           />
         </label>
@@ -256,7 +284,7 @@ export function CreateTripForm({ enabled = true }: CreateTripFormProps) {
               type="date"
               value={startDate}
               onChange={(event) => setStartDate(event.target.value)}
-              className="mt-1 w-full rounded-md border border-slate-300 bg-slate-50 px-3 py-2 outline-none transition focus:border-[#ff6a3d] focus:ring-2 focus:ring-[#ffd2e6]"
+              className="field"
               required
             />
           </label>
@@ -266,52 +294,69 @@ export function CreateTripForm({ enabled = true }: CreateTripFormProps) {
               type="date"
               value={endDate}
               onChange={(event) => setEndDate(event.target.value)}
-              className="mt-1 w-full rounded-md border border-slate-300 bg-slate-50 px-3 py-2 outline-none transition focus:border-[#ff6a3d] focus:ring-2 focus:ring-[#ffd2e6]"
+              className="field"
               required
             />
           </label>
         </div>
       )}
 
-      <label className="block text-sm font-medium text-slate-800">
-        Theme image URL (optional)
-        <input
-          type="url"
-          value={themeImageUrl}
-          onChange={(event) => setThemeImageUrl(event.target.value)}
-          className="mt-1 w-full rounded-md border border-slate-300 bg-slate-50 px-3 py-2 outline-none transition focus:border-[#ff6a3d] focus:ring-2 focus:ring-[#ffd2e6]"
-          placeholder="https://..."
-        />
-      </label>
+      <TimezoneField value={timezone} onChange={setTimezone} />
+      <p className="text-xs muted">
+        Choose your destination’s timezone now, or leave it open until the calendar is ready.
+      </p>
+      <details className="border-t border-[var(--line)] pt-4">
+        <summary className="text-sm font-semibold">Cover image (optional)</summary>
+        <div className="mt-4 space-y-4">
+          <label className="block text-sm font-medium text-slate-800">
+            Image URL
+            <input
+              type="url"
+              value={themeImageUrl}
+              onChange={(event) => setThemeImageUrl(event.target.value)}
+              className="field"
+              placeholder="https://..."
+            />
+          </label>
 
-      <label className="block text-sm font-medium text-slate-800">
-        Or upload theme image (optional)
-        <input
-          type="file"
-          accept="image/*"
-          onChange={(event) => setThemeFile(event.target.files?.[0] ?? null)}
-          className="mt-1 w-full rounded-md border border-slate-300 bg-slate-50 px-3 py-2 outline-none transition focus:border-[#ff6a3d] focus:ring-2 focus:ring-[#ffd2e6]"
-        />
-      </label>
+          <label className="block text-sm font-medium text-slate-800">
+            Or upload an image
+            <input
+              type="file"
+              accept="image/jpeg,image/png,image/webp"
+              onChange={(event) => setThemeFile(event.target.files?.[0] ?? null)}
+              className="field"
+            />
+          </label>
 
+          <p className="text-xs muted">
+            JPG, PNG or WebP, up to 5 MB. Cover images are public by URL, even for private trips. Don’t upload
+            tickets or personal documents.
+          </p>
+        </div>
+      </details>
       <label className="flex items-center gap-2 text-sm font-medium text-slate-800">
         <input
           type="checkbox"
           checked={isPublic}
           onChange={(event) => setIsPublic(event.target.checked)}
-          className="h-4 w-4 accent-[#ff4f8b]"
+          className="h-4 w-4 accent-[#263c35]"
         />
         Public itinerary (anyone with link can view)
       </label>
 
-      {error ? <p className="text-sm text-red-600">{error}</p> : null}
+      {error ? (
+        <p role="alert" className="error">
+          {error}
+        </p>
+      ) : null}
 
       <button
         type="submit"
         disabled={loading || !enabled}
-        className="rounded-md bg-gradient-to-r from-[#ff6a3d] to-[#ff4f8b] px-4 py-2 font-semibold text-white shadow-sm transition hover:from-[#ff7b52] hover:to-[#ff62a0] disabled:opacity-60"
+        className="rounded-md bg-[var(--ink)] px-4 py-2 font-semibold text-white shadow-sm transition hover:opacity-90 disabled:opacity-60"
       >
-        {!enabled ? "Supabase not configured" : loading ? "Creating..." : "Create itinerary"}
+        {!enabled ? "Preview only — saving disabled" : loading ? "Creating..." : "Create itinerary"}
       </button>
     </form>
   );

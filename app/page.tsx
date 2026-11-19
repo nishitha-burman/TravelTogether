@@ -1,59 +1,69 @@
+import Image from "next/image";
 import Link from "next/link";
 import { isSupabaseConfigured } from "@/lib/env";
-import { createSupabaseServerClient } from "@/lib/supabase-server";
-
-const features = [
-  "Shared itineraries with granular permissions",
-  "Interactive map markers for key locations",
-  "Flexible day-by-day timeline with event-specific fields",
-  "Private trips by email invite or public trips by link"
-];
-
-export default async function HomePage() {
-  const supabaseEnabled = isSupabaseConfigured();
-  const data = supabaseEnabled
-    ? await (async () => {
-        try {
-          const supabase = await createSupabaseServerClient();
-          return supabase.auth.getUser().then((result) => result.data);
-        } catch {
-          return { user: null };
-        }
-      })()
-    : { user: null };
-
+export default function HomePage() {
+  const enabled = isSupabaseConfigured();
   return (
-    <section className="space-y-8">
-      <div className="rounded-2xl bg-white/90 p-10 shadow-md ring-1 ring-[#ffd2e6]">
-        <p className="bg-gradient-to-r from-[#ff6a3d] to-[#ff4f8b] bg-clip-text text-sm font-semibold uppercase tracking-[0.2em] text-transparent">
-          Plan trips together
-        </p>
-        <h1 className="mt-3 max-w-2xl text-4xl font-bold text-slate-900">Build a shared travel plan your whole group can actually use.</h1>
-        <p className="mt-4 max-w-xl text-slate-700">
-          TravelTogether keeps your destination, map, stays, museums, transit and daily timeline in one living itinerary.
-        </p>
-        <div className="mt-6 flex flex-wrap gap-3">
-          {data.user ? (
-            <Link href="/trips/new" className="rounded-md bg-gradient-to-r from-[#ff6a3d] to-[#ff4f8b] px-5 py-2.5 font-semibold text-white shadow-sm transition hover:from-[#ff7b52] hover:to-[#ff62a0]">
-              New itinerary
+    <section className="space-y-14">
+      <div className="grid items-center gap-8 py-4 md:grid-cols-2 md:gap-14">
+        <div className="space-y-6">
+          <p className="eyebrow">From a loose idea to a day well spent</p>
+          <h1 className="page-title max-w-md text-4xl">
+            One shared plan.
+            <br />
+            Room for everyone.
+          </h1>
+          <p className="max-w-md leading-relaxed muted">
+            Gather the places you want to go, shape each day together, and take a dated copy into your own
+            calendar.
+          </p>
+          <div className="flex flex-wrap gap-3">
+            <Link href={enabled ? "/trips/new" : "/dashboard"} className="button">
+              {enabled ? "Plan a trip" : "Explore a sample trip"}
             </Link>
-          ) : (
-            <>
-              <Link href="/auth/signup" className="rounded-md bg-gradient-to-r from-[#ff6a3d] to-[#ff4f8b] px-5 py-2.5 font-semibold text-white shadow-sm transition hover:from-[#ff7b52] hover:to-[#ff62a0]">
-                Start planning
-              </Link>
-              <Link href="/auth/login" className="rounded-md border border-[#ffd2e6] bg-white px-5 py-2.5 font-semibold text-slate-800 transition hover:bg-[#fff1f7]">
-                Log in
-              </Link>
-            </>
-          )}
+            <Link href={enabled ? "/auth/login" : "/trips/new"} className="text-button">
+              {enabled ? "Open your trips" : "Try the planning form"}
+            </Link>
+          </div>
         </div>
+        <figure>
+          <div className="relative h-80 overflow-hidden rounded-sm md:h-96">
+            <Image
+              src="https://images.unsplash.com/photo-1533105079780-92b9be482077?q=80&w=1200&auto=format&fit=crop"
+              alt="Sunlit coastal buildings overlooking the sea"
+              fill
+              priority
+              className="object-cover"
+              sizes="(max-width: 768px) 100vw, 50vw"
+            />
+          </div>
+          <figcaption className="mt-3 text-xs muted">
+            A little structure. More time to look around.
+          </figcaption>
+        </figure>
       </div>
-
-      <div className="grid gap-4 md:grid-cols-2">
-        {features.map((feature) => (
-          <article key={feature} className="rounded-xl bg-white/90 p-5 shadow-md ring-1 ring-[#ffd2e6]">
-            <h2 className="font-semibold text-slate-900">{feature}</h2>
+      <div className="grid gap-8 border-t border-[var(--line)] pt-8 md:grid-cols-3">
+        {[
+          [
+            "01",
+            "Start with the possibilities",
+            "Choose a destination and a few days. Add dates when you know them.",
+          ],
+          [
+            "02",
+            "Make the plan together",
+            "Invite editors to help with the itinerary, or viewers to follow along. Booking details stay with the group.",
+          ],
+          [
+            "03",
+            "Take your days with you",
+            "Check dates and timezone, then download a calendar snapshot. Download a fresh copy when the plan changes.",
+          ],
+        ].map(([n, title, copy]) => (
+          <article key={n}>
+            <p className="eyebrow">{n}</p>
+            <h2 className="mt-3 text-lg font-semibold">{title}</h2>
+            <p className="mt-2 text-sm leading-relaxed muted">{copy}</p>
           </article>
         ))}
       </div>

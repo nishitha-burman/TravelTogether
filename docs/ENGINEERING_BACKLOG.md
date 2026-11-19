@@ -2,6 +2,18 @@
 
 This backlog converts the July 2026 architecture review into implementation-ready work. Priorities reflect security and data-integrity risk first, followed by maintainability, user experience, performance, and product expansion.
 
+## v1.4 release update
+
+See [architecture](ARCHITECTURE.md) and [verification record](RELEASE_VERIFICATION.md) for precise scope and deployment prerequisites. Historical problem descriptions below refer to the pre-v1.4 baseline.
+
+- Implemented: TT-001/002 public/private data boundary; TT-005/006/007 atomic trip/day RPCs; TT-008 atomic confirmed-email invite acceptance; TT-009 composite event/day constraint; TT-010/011/012 roles and management UI.
+- TT-003 partially addressed: user-scoped cover upload/delete, 5 MB and MIME limits, explicit public-image copy, cleanup on confirmed creation failure. Orphan/lifecycle cleanup and private media remain.
+- TT-014/018/019 partially addressed: shared private queries/fallbacks, strict event/schedule validation, controlled errors and malformed JSON in affected routes. Generated database types and broader API unification remain.
+- TT-021/022/023 delivered for server-confirmed refreshes, progressive forms and retained errors, without speculative optimistic writes. Native destructive confirmations remain; broader dialog/reordering work is open.
+- TT-030/031 added local PostgreSQL/RLS/transaction and route/serializer suites. Staging Supabase and multi-connection tests remain. TT-034 repairs lint with flat config; TT-033 CI is not yet implemented.
+- TT-040/041 deliver explicit trip timezone, UTC snapshots, all-day/overnight semantics, revision metadata and readiness. Multiple timezone legs, subscriptions and providers remain out of scope.
+- Dependency follow-up: runtime audit is clean after the Next.js 15.5.29/Zod 4.6.7 and transitive security updates. The full audit still reports 20 high development-toolchain findings rooted in picomatch; resolve through a separately verified toolchain update. Review temporary PostCSS and brace-expansion overrides when updating upstream dependencies.
+
 ## Priority definitions
 
 - **P0 — Critical:** Security exposure or credible data-corruption risk. Address before expanding collaboration or public sharing.
