@@ -4,8 +4,11 @@ TravelTogether helps a small group build one shared itinerary and carry a dated 
 
 ## Current journey
 
+- Accounts use Supabase Auth. Every created trip belongs to its creator’s account; accepted invitations add editor/viewer access to other trips. **Profile** in the header opens the private account page, with display name, home city, bio, email, account join date, and upcoming trip links.
+- Profile statistics count current owned trips, accepted collaborations, past trips by scheduled end date, and upcoming/active trips. Counts deduplicate trip IDs and exclude pending invitations and public-only browsing. Past trips do not assert actual attendance; deleting trips or losing membership can reduce counts.
 - Sign up/login with Supabase Auth. Create a trip with a destination and a day count or date range; timezone can be chosen now or later.
 - Owners invite editors or viewers by email. Invitations are accepted atomically when a confirmed matching account opens the dashboard. The app does not send invitation emails.
+- Owners edit a trip’s title and switch between a number of days and actual dates using **Edit trip** on the dashboard or trip page. Title-only edits preserve all day dates. Schedule changes keep existing events on their days, add empty days when extending, and block shortening if a removed day contains events. Owners can delete from either surface after confirmation.
 - Owners and editors add/edit/delete days, events and saved places. Owners alone control visibility, membership and deletion. Viewers read the private group itinerary and download its calendar.
 - Trip sections use tabs: Itinerary, Calendar, Saved places, and owner-only Travelers & sharing. Arrow keys, Home and End navigate tabs; visited panels retain unfinished form input.
 - Calendar shows a weekly date grid with all-day and timed events, category colors, week navigation and explicit overnight labels. Undated days remain undated. Private calendar downloads and date/timezone controls appear below the grid; public calendars use sanitized data.

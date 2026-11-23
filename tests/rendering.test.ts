@@ -1,6 +1,8 @@
 import { test, expect, vi } from "vitest";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
+import { ProfileForm } from "@/lib/components/profile-form";
+import { TripSettings } from "@/lib/components/trip-settings";
 import { TimelineEditor } from "@/lib/components/timeline-editor";
 import { CalendarExport } from "@/lib/components/calendar-export";
 import { demoTrip } from "@/lib/demo";
@@ -93,4 +95,26 @@ test("timeline preserves addition order for untimed events instead of sorting UU
   expect(html.indexOf("Earlier clock time")).toBeLessThan(
     html.indexOf("Later clock time"),
   );
+});
+
+test("trip settings expose title and scheduling while scaffold writes remain disabled", () => {
+  const data = demoTrip();
+  const html = renderToStaticMarkup(createElement(TripSettings, { ...data, initiallyOpen:true, scaffold:true }));
+  expect(html).toContain("Edit trip details");
+  expect(html).toContain("Trip title");
+  expect(html).toContain("Actual dates");
+  expect(html).toContain("Number of days");
+  expect(html).toContain("Delete trip");
+  expect(html).toContain("Saving and deletion are disabled");
+  expect(html).toContain('disabled=""');
+});
+
+test("profile scaffold keeps fields editable but disables saving and discloses privacy", () => {
+  const profile = {id:"owner",display_name:"Traveler",home_city:null,bio:null,created_at:"2026-11-01T12:00:00Z"};
+  const html = renderToStaticMarkup(createElement(ProfileForm, {profile,enabled:true,scaffold:true}));
+  expect(html).toContain("Display name");
+  expect(html).toContain("Home city");
+  expect(html).toContain("Your profile is private");
+  expect(html).toContain("Changes are not saved");
+  expect(html).toContain('disabled=""');
 });

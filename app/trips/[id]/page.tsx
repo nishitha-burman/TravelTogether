@@ -14,7 +14,7 @@ import { calendarReadiness } from "@/lib/calendar/readiness";
 import { TimelineEditor } from "@/lib/components/timeline-editor";
 import { SharingSettings } from "@/lib/components/sharing-settings";
 import { MapEditor } from "@/lib/components/map-editor-client";
-import { DeleteItineraryButton } from "@/lib/components/delete-itinerary-button";
+import { TripSettings } from "@/lib/components/trip-settings";
 import { CalendarExport } from "@/lib/components/calendar-export";
 import { TripTabs } from "@/lib/components/trip-tabs";
 import { TripCalendar } from "@/lib/components/trip-calendar";
@@ -24,9 +24,10 @@ export default async function TripDetailPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ role?: string }>;
+  searchParams: Promise<{ role?: string; edit?: string }>;
 }) {
   const { id } = await params;
+  const query = await searchParams;
   const scaffold = !isSupabaseConfigured();
   let data = demoTrip(id);
   let role: TripRole | null = "owner";
@@ -54,7 +55,6 @@ export default async function TripDetailPage({
     if (!trip) notFound();
     data = { trip, ...timeline, markers };
   } else {
-    const query = await searchParams;
     if (query.role === "editor" || query.role === "viewer") role = query.role;
   }
   const { trip, days, events, markers } = data;
@@ -100,6 +100,15 @@ export default async function TripDetailPage({
       />
       {scaffold && id !== "demo-kyoto" ? (
         <p className="text-sm muted">{honoluluPreviewNote}</p>
+      ) : null}
+      {manage ? (
+        <TripSettings
+          trip={trip}
+          days={days}
+          events={events}
+          initiallyOpen={query.edit === "1"}
+          scaffold={scaffold}
+        />
       ) : null}
       <TripTabs
         tabs={[
@@ -166,23 +175,6 @@ export default async function TripDetailPage({
                         scaffold={scaffold}
                         initiallyOpen
                       />
-                      {!scaffold ? (
-                        <details className="border-t border-[var(--line)] pt-5">
-                          <summary className="text-sm muted">
-                            Trip administration
-                          </summary>
-                          <div className="mt-4 space-y-3">
-                            <p className="text-sm muted">
-                              Deleting the trip removes its itinerary and
-                              everyone’s access.
-                            </p>
-                            <DeleteItineraryButton
-                              tripId={id}
-                              redirectToDashboard
-                            />
-                          </div>
-                        </details>
-                      ) : null}
                     </>
                   ),
                 },

@@ -67,3 +67,11 @@ export type InviteRow = {
   invited_by: string;
   accepted_at: string | null;
 };
+
+export type ProfileRow = {
+  id: string;
+  display_name: string | null;
+  home_city: string | null;
+  bio: string | null;
+  created_at: string;
+};

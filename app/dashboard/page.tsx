@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { DeleteItineraryButton } from "@/lib/components/delete-itinerary-button";
 import { isSupabaseConfigured } from "@/lib/env";
 import { acceptPendingInvitesByEmail, requireUser } from "@/lib/trips";
 import { demoTrip } from "@/lib/demo";
@@ -114,6 +115,12 @@ export default async function DashboardPage() {
                               ? "Choose a timezone for your calendar"
                               : "Review calendar details"}
                     </p>
+                    {role === "owner" ? (
+                      <div className="mt-4 flex flex-wrap items-center justify-between gap-2">
+                        <Link className="button-secondary" href={`/trips/${trip.id}?edit=1${scaffold ? "&role=owner" : ""}`}>Edit trip</Link>
+                        <DeleteItineraryButton tripId={trip.id} tripTitle={trip.title} scaffold={scaffold} />
+                      </div>
+                    ) : null}
                     <div className="mt-4 flex flex-wrap items-center justify-between gap-2">
                       <Link
                         href={`/trips/${trip.id}${scaffold ? `?role=${role}` : ""}`}

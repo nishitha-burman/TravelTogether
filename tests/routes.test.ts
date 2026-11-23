@@ -3,7 +3,9 @@ import { createClient } from "@supabase/supabase-js";
 import { createSupabaseServerClient } from "@/lib/supabase-server";
 import { getAuthedUser } from "@/lib/api-auth";
 import { readTrips, readTimeline } from "@/lib/server/trip-data";
+import { PATCH as updateProfile } from "@/app/api/profile/route";
 import { POST as addEvent } from "@/app/api/trips/[id]/events/route";
+import { PATCH as tripDetails, DELETE as deleteTrip } from "@/app/api/trips/[id]/route";
 import { PATCH as settings } from "@/app/api/trips/[id]/settings/route";
 import { PATCH as schedule } from "@/app/api/trips/[id]/schedule/route";
 import { GET as download } from "@/app/api/trips/[id]/calendar/route";
@@ -62,6 +64,7 @@ function fakeClient() {
           writes(table, row);
           return Promise.resolve({ error: null });
         }),
+        delete: vi.fn(() => { writes(table, "delete"); return query; }),
         update: vi.fn((row: unknown) => {
           writes(table, row);
           return query;
@@ -209,4 +212,52 @@ test("scaffold authentication returns 503 before creating any client", async () 
   expect(auth.error?.status).toBe(503);
   expect(createClient).not.toHaveBeenCalled();
   expect(createSupabaseServerClient).not.toHaveBeenCalled();
+});
+
+test("trip title, duration and delete APIs enforce owner access for cookie and bearer sessions", async () => {
+  for (const candidate of ["editor", "viewer", null] as const) {
+    role = candidate;
+    expect((await tripDetails(request({title:"Renamed"}, "PATCH"), context))?.status).toBe(403);
+    expect((await deleteTrip(request(null, "DELETE"), context))?.status).toBe(403);
+  }
+  expect(rpc).not.toHaveBeenCalled();
+  expect(writes).not.toHaveBeenCalled();
+  role = "owner";
+  expect((await tripDetails(request({title:"Renamed"}, "PATCH", false), context))?.status).toBe(200);
+  expect(rpc).toHaveBeenCalledWith("update_trip_details", expect.objectContaining({target_id:tripId,new_title:"Renamed",plan_mode:null}));
+  expect((await deleteTrip(request(null, "DELETE"), context))?.status).toBe(200);
+  expect(filters).toHaveBeenCalledWith("itineraries", "owner_id", owner);
+});
+
+test("trip date ranges validate inclusive length and report protected-day conflicts", async () => {
+  const dates = {title:"Honolulu", planningMode:"date_range",startDate:"2026-12-30",endDate:"2027-01-02",timezone:"Pacific/Honolulu"};
+  expect((await tripDetails(request(dates, "PATCH"), context))?.status).toBe(200);
+  expect(rpc).toHaveBeenCalledWith("update_trip_details", {target_id:tripId,new_title:"Honolulu",plan_mode:"date_range",total_days:4,first_date:"2026-12-30",trip_timezone:"Pacific/Honolulu"});
+  rpc.mockClear();
+  for (const invalid of [{...dates,endDate:"2026-12-29"},{...dates,startDate:"2026-02-30"},{...dates,endDate:"2028-01-01"},{title:" ",planningMode:"days",tripLengthDays:2},{title:"Title",planningMode:"days",tripLengthDays:0},{title:"Title",tripLengthDays:2}]) {
+    expect((await tripDetails(request(invalid, "PATCH"), context))?.status).toBe(400);
+  }
+  expect(rpc).not.toHaveBeenCalled();
+  rpc.mockResolvedValue({error:{code:"23514"}});
+  expect((await tripDetails(request({title:"Shorter",planningMode:"days",tripLengthDays:1}, "PATCH"), context))?.status).toBe(409);
+  rpc.mockResolvedValue({error:{code:"PGRST202"}});
+  expect((await tripDetails(request({title:"New title"}, "PATCH"), context))?.status).toBe(503);
+});
+
+test("profile updates bind to the signed-in account and reject account identity or statistic edits", async () => {
+  signedIn = false;
+  expect((await updateProfile(request({displayName:"Traveler"}, "PATCH")))?.status).toBe(401);
+  expect(writes).not.toHaveBeenCalled();
+  signedIn = true;
+  role = "editor";
+  expect((await updateProfile(request({displayName:"  A traveler  ",homeCity:"New York",bio:"Food and hikes"}, "PATCH", false)))?.status).toBe(200);
+  expect(filters).toHaveBeenCalledWith("profiles", "id", member);
+  expect(writes).toHaveBeenCalledWith("profiles", {display_name:"A traveler",home_city:"New York",bio:"Food and hikes"});
+  writes.mockClear();
+  for (const payload of [{id:owner,displayName:"Someone else"},{created:200},{email:"other@example.test"},{bio:"x".repeat(501)},{}]) {
+    expect((await updateProfile(request(payload, "PATCH")))?.status).toBe(400);
+  }
+  expect(writes).not.toHaveBeenCalled();
+  expect((await updateProfile(request({displayName:"",bio:null}, "PATCH")))?.status).toBe(200);
+  expect(writes).toHaveBeenCalledWith("profiles", {display_name:null,bio:null});
 });

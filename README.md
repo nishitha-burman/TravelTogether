@@ -14,6 +14,8 @@ Next.js App Router + React + TypeScript + Tailwind + Supabase. Owners invite edi
    - `supabase/migrations/003_private_collaboration.sql`
    - `supabase/migrations/004_calendar_ready_planning.sql`
    - `supabase/migrations/005_event_addition_order.sql`
+   - `supabase/migrations/006_edit_trip_details.sql`
+   - `supabase/migrations/007_account_profiles.sql`
 4. Enable Supabase Email Auth and configure the site/redirect URLs.
 5. Run `npm run dev` and open the printed local URL.
 
@@ -21,7 +23,10 @@ Next.js App Router + React + TypeScript + Tailwind + Supabase. Owners invite edi
 
 ## What works
 
+- Signed-in accounts own their created trips. Private profiles at `/profile` include editable display name, home city and bio, account email/join date, created/collaboration/past/upcoming trip counts, and upcoming trip links. Profile editing requires migration 007.
+
 - Day-count or date-range trip creation; dates/timezone can be assigned later.
+- Owners edit trip titles, duration or actual dates from the dashboard or trip header, and delete trips with confirmation. Shortening only removes empty trailing days; events on removed days block the change. Trip-detail editing requires migration 006.
 - Owner/editor/viewer roles enforced in APIs and RLS. Owners manage invitations, membership, public links and deletion.
 - Tabbed itinerary, weekly event calendar, saved places, and owner sharing; keyboard navigation and retained drafts.
 - Timeline and saved-place editing without full-page reloads; pending/saved/error states and retained failed inputs.
@@ -40,7 +45,7 @@ Run `npm run dev:preview` and open http://127.0.0.1:3100/dashboard. This command
 
 The Honolulu example covers November 4–8, 2026 in `Pacific/Honolulu`, with the traveler's hotel, beach, food stops, Pearl Harbor/USS Arizona, and Saturday market/Diamond Head visits. Other day placements are tentative; no booking times or references are invented. Untimed entries display as all-day. Honolulu appears under **Past trips**; Kyoto remains an undated example. Older Lisbon preview URLs still render the current example.
 
-With Supabase variables unset, browse `/`, `/dashboard`, `/trips/new`, `/trips/demo-honolulu`, `/trips/demo-kyoto`, and `/public/demo-honolulu`. Sample trips use the real workspace, including owner/editor/viewer preview links. Saving, sign-in and downloads are disabled. External imagery/maps still need a network connection.
+With Supabase variables unset, browse `/`, `/dashboard`, `/trips/new`, `/trips/demo-honolulu`, `/trips/demo-kyoto`, and `/public/demo-honolulu`. `/profile` previews the account page with clearly marked example statistics. Sample trips use the real workspace, including owner/editor/viewer preview links. Saving, sign-in and downloads are disabled. External imagery/maps still need a network connection.
 
 ### What to try
 

@@ -5,27 +5,36 @@ export function DeleteItineraryButton({
   tripId,
   className,
   redirectToDashboard = false,
+  tripTitle,
+  scaffold = false,
 }: {
   tripId: string;
   className?: string;
   redirectToDashboard?: boolean;
+  tripTitle?: string;
+  scaffold?: boolean;
 }) {
   const router = useRouter();
   const { mutate, saving, error } = useTripMutation();
   return (
     <div>
       <button
-        disabled={saving}
+        disabled={saving || scaffold}
+        aria-label={tripTitle ? `Delete ${tripTitle}` : "Delete trip"}
         type="button"
         className={className ?? "button-secondary text-red-800"}
         onClick={() => {
-          if (window.confirm("Delete this itinerary and all its events? This cannot be undone."))
+          if (
+            window.confirm(
+              `Delete ${tripTitle ? `“${tripTitle}”` : "this trip"} and all its events? Everyone will lose access. This cannot be undone.`,
+            )
+          )
             void mutate(`/api/trips/${tripId}`, "DELETE", undefined, () => {
               if (redirectToDashboard) router.push("/dashboard");
             });
         }}
       >
-        {saving ? "Deleting…" : "Delete itinerary"}
+        {saving ? "Deleting…" : "Delete trip"}
       </button>
       {error ? (
         <p className="error mt-3" role="alert">

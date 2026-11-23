@@ -1,6 +1,6 @@
 # v1.4 verification record
 
-Verified locally November 17–18, 2026, with production release and owner-flow verification completed November 19. This record was reconciled November 23 from those checks; no new checks are implied by that documentation update.
+Initial v1.4 verification ran locally November 17–18, 2026, with production release and owner-flow verification completed November 19. Later changes and production checks are recorded chronologically below; local follow-up entries describe their state when recorded.
 
 ## Production release and live checks
 
@@ -76,3 +76,21 @@ Release commit `f0844856c1528f3fa018d695d3c3047483cacacf` was pushed to main and
 ## Migration 005 completion — November 23, 2026
 
 After explicit approval, applied `005_event_addition_order.sql` to the production Supabase project. The SQL editor reported success. A read-only catalog check confirmed that `get_public_itinerary(text)` orders by start time, original creation time, then ID; anonymous and authenticated callers retain execute access. The same verification confirmed the private Honolulu itinerary still returns no public projection. No trip rows or visibility settings were changed. This resolves the migration-approval block described above; migration 005 is now applied.
+
+## Trip edit/delete follow-up — November 23, 2026 (local, not deployed)
+
+Added owner edit/delete actions to dashboard cards and the trip header, plus migration 006 and an owner-only trip-details PATCH. The local suite passes 46 tests, including atomic title/date/mode/length updates, preservation of day IDs and event notes, nonconsecutive dates on title-only updates, empty-day shortening, occupied-day rollback, date validation, API owner/cookie/bearer rules, controlled missing-RPC errors and owner-only cascading deletion. TypeScript, targeted ESLint and diff checks pass.
+
+Scaffold browser checks verified the dashboard edit link opens settings, title input, both planning modes, day-count changes, native date keyboard changes and inclusive-length recalculation, occupied-day warnings, and cancel/reopen restoring saved values. Saves and deletion remain disabled in scaffold mode. Mobile layout and hidden owner controls for nonowners were checked. No live trip data was changed. Migration 006 is pending; this feature is not pushed or deployed.
+
+## Account/profile follow-up — November 23, 2026 (local, not deployed)
+
+Added a private `/profile` page, header navigation, profile edit API, basic fields in migration 007, and derived account trip statistics. The local suite passes 52 tests, with new checks for profile self-only RLS, field limits, anonymous denial, cookie-backed updates bound to the current Auth user, rejected ID/email/statistic payloads, clearing basic fields, deduplicated counts, today boundaries, baseline-schema fallback and operational failure handling. TypeScript, targeted ESLint and diff checks pass.
+
+This work remains local alongside pending trip-edit migration 006. Migration 007 has not been applied to production, and no live profile or trip data was changed. Browser checks use the scaffold profile; no live save claim is made.
+
+Local profile browser checks confirmed sample statistics, the Profile navigation link, editable name/city/bio fields, the bio character counter and disabled scaffold save. At 390px, all four statistic cards rendered without page-level horizontal overflow. Desktop and mobile checks used sample data only; no profile was saved to Supabase.
+
+## Trip management and account profile release — November 23, 2026
+
+After explicit approval, applied migrations 006 and 007 together in one production transaction and notified PostgREST to reload its schema. The SQL editor reported success. This enables the owner-only trip-details RPC and the private profile fields; no existing trip, profile value or visibility setting was edited by the migrations. This resolves the pending migration state in the preceding local follow-ups. The production build passed before publishing this release; the current test suite has 52 passing tests.

@@ -40,6 +40,11 @@ export default async function RootLayout({ children }: { children: React.ReactNo
                 <Link href="/auth/login">Log in</Link>
               )}
               {signedIn ? (
+                <Link href="/profile" className="font-semibold">Profile</Link>
+              ) : !enabled ? (
+                <Link href="/profile">Profile</Link>
+              ) : null}
+              {signedIn ? (
                 <form action="/auth/logout" method="post">
                   <button className="text-button">Log out</button>
                 </form>
