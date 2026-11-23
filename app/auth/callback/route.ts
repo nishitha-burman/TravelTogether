@@ -6,10 +6,19 @@ export async function GET(request: NextRequest) {
   const requestUrl = new URL(request.url);
   const code = requestUrl.searchParams.get("code");
   const next = requestUrl.searchParams.get("next") || "/dashboard";
-  const redirectUrl = new URL(next.startsWith("/") ? next : "/dashboard", requestUrl.origin);
+  const redirectUrl = new URL(
+    next.startsWith("/") && !next.startsWith("//") ? next : "/dashboard",
+    requestUrl.origin,
+  );
+  if (redirectUrl.origin !== requestUrl.origin)
+    redirectUrl.href = new URL("/dashboard", requestUrl.origin).href;
   const response = NextResponse.redirect(redirectUrl);
 
   if (!isSupabaseConfigured() || !code) {
+    if (next === "/profile" && !code)
+      return NextResponse.redirect(
+        new URL("/profile?emailConfirmation=error", requestUrl.origin),
+      );
     return response;
   }
 
@@ -29,11 +38,22 @@ export async function GET(request: NextRequest) {
         cookiesToSet.forEach((cookie) => {
           response.cookies.set(cookie.name, cookie.value, cookie.options);
         });
-      }
-    }
+      },
+    },
   });
 
-  await supabase.auth.exchangeCodeForSession(code);
+  const { error } = await supabase.auth.exchangeCodeForSession(code);
+  if (error) {
+    response.headers.set(
+      "Location",
+      new URL(
+        next === "/profile"
+          ? "/profile?emailConfirmation=error"
+          : "/auth/login",
+        requestUrl.origin,
+      ).href,
+    );
+  }
 
   return response;
 }

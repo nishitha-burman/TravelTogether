@@ -16,7 +16,9 @@ Next.js App Router + React + TypeScript + Tailwind + Supabase. Owners invite edi
    - `supabase/migrations/005_event_addition_order.sql`
    - `supabase/migrations/006_edit_trip_details.sql`
    - `supabase/migrations/007_account_profiles.sql`
+   - `supabase/migrations/008_profile_photos_and_email.sql`
 4. Enable Supabase Email Auth and configure the site/redirect URLs.
+   Keep secure email-change confirmation enabled and allow `/auth/callback` on the app origin. Migration 008 enables private profile photos; email confirmation delivery needs working Supabase email configuration.
 5. Run `npm run dev` and open the printed local URL.
 
 **Apply 003 and 004 before deploying v1.4.** The privacy fix depends on database policies, not just the new UI. Old public pages are intentionally unavailable without the sanitized RPC. Day restructuring, invite acceptance and date assignment require the new transactional functions. Private legacy reads still have schema fallbacks. See [deployment notes](docs/ARCHITECTURE.md).

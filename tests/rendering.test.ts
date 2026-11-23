@@ -112,7 +112,7 @@ test("trip settings expose title and scheduling while scaffold writes remain dis
 test("profile scaffold keeps fields editable but disables saving and discloses privacy", () => {
   const profile = {id:"owner",display_name:"Traveler",home_city:null,bio:null,created_at:"2026-11-01T12:00:00Z"};
   const html = renderToStaticMarkup(createElement(ProfileForm, {profile,enabled:true,scaffold:true}));
-  expect(html).toContain("Display name");
+  expect(html).toContain("Name");
   expect(html).toContain("Home city");
   expect(html).toContain("Your profile is private");
   expect(html).toContain("Changes are not saved");

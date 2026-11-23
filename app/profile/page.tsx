@@ -5,11 +5,18 @@ import { readProfile } from "@/lib/server/profile-data";
 import { readTrips } from "@/lib/server/trip-data";
 import { accountTripStats } from "@/lib/profile";
 import { ProfileForm } from "@/lib/components/profile-form";
+import { ProfilePhoto } from "@/lib/components/profile-photo";
+import { AccountEmailForm } from "@/lib/components/account-email-form";
 import { dateLabel } from "@/lib/calendar/time";
 import { demoTrip } from "@/lib/demo";
 import type { ProfileRow } from "@/types/trip";
 
-export default async function ProfilePage() {
+export default async function ProfilePage({
+  searchParams,
+}: {
+  searchParams: Promise<{ emailConfirmation?: string }>;
+}) {
+  const params = await searchParams;
   const scaffold = !isSupabaseConfigured();
   let profile: ProfileRow = {
     id: "demo-owner",
@@ -21,6 +28,7 @@ export default async function ProfilePage() {
   let joinedAt = profile.created_at;
   let userId = profile.id;
   let email: string | undefined = "traveler@example.com";
+  let pendingEmail: string | undefined;
   let enabled = true;
   let trips = [demoTrip().trip, demoTrip("demo-kyoto").trip];
   if (!scaffold) {
@@ -28,6 +36,7 @@ export default async function ProfilePage() {
     userId = user.id;
     joinedAt = user.created_at;
     email = user.email;
+    pendingEmail = user.new_email;
     const [account, owned, memberships] = await Promise.all([
       readProfile(supabase, user.id),
       supabase.from("itineraries").select("id").eq("owner_id", user.id),
@@ -136,7 +145,14 @@ export default async function ProfilePage() {
         </p>
       </section>
       <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)]">
-        <ProfileForm profile={profile} enabled={enabled} scaffold={scaffold} />
+        <div className="min-w-0 space-y-6">
+          <ProfilePhoto initials={initials} scaffold={scaffold} />
+          <ProfileForm
+            profile={profile}
+            enabled={enabled}
+            scaffold={scaffold}
+          />
+        </div>
         <div className="space-y-6">
           <section
             className="panel space-y-4"
@@ -155,6 +171,12 @@ export default async function ProfilePage() {
                 <dd className="mt-1">{dateLabel(joinedAt.slice(0, 10))}</dd>
               </div>
             </dl>
+            <AccountEmailForm
+              email={email}
+              pendingEmail={pendingEmail}
+              scaffold={scaffold}
+              confirmationError={params.emailConfirmation === "error"}
+            />
             <p className="text-xs leading-relaxed muted">
               Trips you create belong to this account. Joining another trip adds
               it to Your trips; its owner manages sharing.

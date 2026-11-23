@@ -37,6 +37,7 @@ before(async () => {
     "005_event_addition_order.sql",
     "006_edit_trip_details.sql",
     "007_account_profiles.sql",
+    "008_profile_photos_and_email.sql",
   ]) {
     const sql = (await readFile(`supabase/migrations/${name}`, "utf8")).replace(
       'create extension if not exists "pgcrypto";',
@@ -65,6 +66,23 @@ before(async () => {
   );
 });
 after(() => db.close());
+test("profile photos are private and restricted to the account's single photo path", async () => {
+  await asUser(owner);
+  await db.query("insert into storage.objects(bucket_id,name) values('profile-photos',$1)", [`${owner}/avatar`]);
+  await assert.rejects(db.query("insert into storage.objects(bucket_id,name) values('profile-photos',$1)", [`${editor}/avatar`]));
+  await assert.rejects(db.query("insert into storage.objects(bucket_id,name) values('profile-photos',$1)", [`${owner}/other-file`]));
+  assert.equal(await scalar("select count(*)::int from storage.objects where bucket_id='profile-photos'"), 1);
+  await asUser(editor);
+  assert.equal(await scalar("select count(*)::int from storage.objects where bucket_id='profile-photos'"), 0);
+  assert.equal((await db.query("update storage.objects set name=$1 where bucket_id='profile-photos' returning id", [`${editor}/avatar`])).rows.length, 0);
+  await asUser(null);
+  await assert.rejects(db.query("select * from storage.objects where bucket_id='profile-photos'"));
+  await db.exec("reset role");
+  assert.equal(await scalar("select public from storage.buckets where id='profile-photos'"), false);
+  await db.query("update auth.users set email='new-owner@example.test' where id=$1", [owner]);
+  assert.equal(await scalar("select email from profiles where id=$1", [owner]), "new-owner@example.test");
+  await db.query("update auth.users set email='owner@example.test' where id=$1", [owner]);
+});
 test("anonymous and unrelated users cannot read raw public-trip data; RPC is sanitized", async () => {
   await asUser(owner);
   const slug = await scalar("select public_slug from itineraries where id=$1", [trip]);

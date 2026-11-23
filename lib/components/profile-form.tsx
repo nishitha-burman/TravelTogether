@@ -34,13 +34,13 @@ export function ProfileForm({
       <h2 className="section-heading">About you</h2>
       <fieldset disabled={saving || !enabled} className="space-y-5">
         <label className="field-label">
-          Display name
+          Name
           <input
             className="field"
             value={name}
             onChange={(event) => setName(event.target.value)}
             maxLength={80}
-            autoComplete="nickname"
+            autoComplete="name"
             placeholder="What should we call you?"
           />
         </label>
@@ -66,7 +66,9 @@ export function ProfileForm({
             placeholder="Favorite ways to travel, places you love, or what you’re planning next…"
           />
         </label>
-        <p id={bioCountId} className="text-xs muted">{bio.length}/500 characters</p>
+        <p id={bioCountId} className="text-xs muted">
+          {bio.length}/500 characters
+        </p>
         <p className="text-sm muted">
           Your profile is private to your account. It isn’t included in public
           itineraries or calendar downloads.
