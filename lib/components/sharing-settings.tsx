@@ -9,11 +9,13 @@ export function SharingSettings({
   isPublic,
   publicSlug,
   scaffold = false,
+  initiallyOpen = false,
 }: {
   tripId: string;
   isPublic: boolean;
   publicSlug: string;
   scaffold?: boolean;
+  initiallyOpen?: boolean;
 }) {
   const [email, setEmail] = useState("");
   const [role, setRole] = useState("editor");
@@ -22,7 +24,7 @@ export function SharingSettings({
   const [loadError, setLoadError] = useState<string | null>(null);
   const [loaded, setLoaded] = useState(scaffold);
   const [copied, setCopied] = useState(false);
-  const [opened, setOpened] = useState(false);
+  const [opened, setOpened] = useState(initiallyOpen);
   const [reload, setReload] = useState(0);
   const { mutate, saving, error, status } = useTripMutation();
   useEffect(() => {
@@ -50,7 +52,7 @@ export function SharingSettings({
   }, [opened, tripId, reload, scaffold]);
   const refresh = () => setReload((n) => n + 1);
   return (
-    <details id="sharing" className="panel" onToggle={(e) => setOpened(e.currentTarget.open)}>
+    <details id="sharing" className="panel" open={opened} onToggle={(e) => setOpened(e.currentTarget.open)}>
       <summary className="font-semibold">
         Travelers & sharing{" "}
         <span className="font-normal muted">· {isPublic ? "Public link on" : "Private trip"}</span>

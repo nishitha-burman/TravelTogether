@@ -2,6 +2,8 @@ import { notFound } from "next/navigation";
 import { isSupabaseConfigured } from "@/lib/env";
 import { createSupabaseServerClient } from "@/lib/supabase-server";
 import { demoTrip, honoluluPreviewNote } from "@/lib/demo";
+import { TripTabs } from "@/lib/components/trip-tabs";
+import { TripCalendar } from "@/lib/components/trip-calendar";
 import { TripHeading } from "@/lib/components/trip-heading";
 import { dateLabel } from "@/lib/calendar/time";
 import type { DayRow, EventRow, MarkerRow, TripRow } from "@/types/trip";
@@ -77,76 +79,111 @@ export default async function PublicTripPage({
         A shared view of the plan. Traveler identities, group notes and booking
         details are private.
       </p>
-      <section className="space-y-7" aria-labelledby="public-itinerary">
-        <h2 id="public-itinerary" className="section-heading">
-          The itinerary
-        </h2>
-        {days.map((day) => (
-          <article className="border-t border-[var(--line)] pt-5" key={day.id}>
-            <p className="eyebrow">
-              Day {day.day_number}
-              {day.day_date ? ` / ${dateLabel(day.day_date)}` : ""}
-            </p>
-            <h3 className="mt-1 font-serif text-2xl">
-              {day.label || "An open day"}
-            </h3>
-            <ul className="mt-4 divide-y divide-[var(--line)]">
-              {events
-                .filter((e) => e.day_id === day.id)
-                .sort((a, b) =>
-                  (a.start_time ?? "").localeCompare(b.start_time ?? ""),
-                )
-                .map((e) => (
-                  <li
-                    className="grid grid-cols-[5rem_1fr] gap-4 py-4"
-                    key={e.id}
+      <TripTabs
+        tabs={[
+          {
+            id: "itinerary",
+            label: "Itinerary",
+            content: (
+              <section className="space-y-7" aria-labelledby="public-itinerary">
+                <h2 id="public-itinerary" className="section-heading">
+                  The itinerary
+                </h2>
+                {days.map((day) => (
+                  <article
+                    className="border-t border-[var(--line)] pt-5"
+                    key={day.id}
                   >
-                    <div className="text-sm tabular-nums">
-                      {e.start_time?.slice(0, 5) || "All day"}
-                      {e.end_time ? (
-                        <p className="mt-1 text-xs muted">
-                          to {e.end_time.slice(0, 5)}
-                          {e.start_time && e.end_time <= e.start_time
-                            ? " +1 day"
-                            : ""}
-                        </p>
-                      ) : null}
-                    </div>
-                    <div>
-                      <p className="font-semibold">{e.title}</p>
-                      <p className="mt-1 text-sm capitalize muted">
-                        {e.event_type}
-                      </p>
-                    </div>
-                  </li>
+                    <p className="eyebrow">
+                      Day {day.day_number}
+                      {day.day_date ? ` / ${dateLabel(day.day_date)}` : ""}
+                    </p>
+                    <h3 className="mt-1 font-serif text-2xl">
+                      {day.label || "An open day"}
+                    </h3>
+                    <ul className="mt-4 divide-y divide-[var(--line)]">
+                      {events
+                        .filter((e) => e.day_id === day.id)
+                        .sort((a, b) =>
+                          (a.start_time ?? "").localeCompare(
+                            b.start_time ?? "",
+                          ),
+                        )
+                        .map((e) => (
+                          <li
+                            className="grid grid-cols-[5rem_1fr] gap-4 py-4"
+                            key={e.id}
+                          >
+                            <div className="text-sm tabular-nums">
+                              {e.start_time?.slice(0, 5) || "All day"}
+                              {e.end_time ? (
+                                <p className="mt-1 text-xs muted">
+                                  to {e.end_time.slice(0, 5)}
+                                  {e.start_time && e.end_time <= e.start_time
+                                    ? " +1 day"
+                                    : ""}
+                                </p>
+                              ) : null}
+                            </div>
+                            <div>
+                              <p className="font-semibold">{e.title}</p>
+                              <p className="mt-1 text-sm capitalize muted">
+                                {e.event_type}
+                              </p>
+                            </div>
+                          </li>
+                        ))}
+                    </ul>
+                    {!events.some((e) => e.day_id === day.id) ? (
+                      <p className="mt-4 text-sm muted">Room to explore.</p>
+                    ) : null}
+                  </article>
                 ))}
-            </ul>
-            {!events.some((e) => e.day_id === day.id) ? (
-              <p className="mt-4 text-sm muted">Room to explore.</p>
-            ) : null}
-          </article>
-        ))}
-      </section>
-      {markers.length ? (
-        <section className="border-t border-[var(--line)] pt-6">
-          <h2 className="section-heading">Saved places</h2>
-          <ul className="mt-3 divide-y divide-[var(--line)]">
-            {markers.map((m) => (
-              <li key={m.id} className="py-3">
-                <a
-                  className="text-sm underline underline-offset-4"
-                  href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${m.name}, ${trip.destination}`)}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  {m.name}
-                  <span className="sr-only"> — open map in a new tab</span>
-                </a>
-              </li>
-            ))}
-          </ul>
-        </section>
-      ) : null}
+              </section>
+            ),
+          },
+          {
+            id: "calendar",
+            label: "Calendar",
+            content: (
+              <TripCalendar
+                days={days}
+                events={events}
+                timezone={trip.timezone ?? null}
+              />
+            ),
+          },
+          {
+            id: "places",
+            label: "Saved places",
+            content: markers.length ? (
+              <section className="border-t border-[var(--line)] pt-6">
+                <h2 className="section-heading">Saved places</h2>
+                <ul className="mt-3 divide-y divide-[var(--line)]">
+                  {markers.map((m) => (
+                    <li key={m.id} className="py-3">
+                      <a
+                        className="text-sm underline underline-offset-4"
+                        href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${m.name}, ${trip.destination}`)}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                      >
+                        {m.name}
+                        <span className="sr-only">
+                          {" "}
+                          — open map in a new tab
+                        </span>
+                      </a>
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            ) : (
+              <p className="muted">No saved places yet.</p>
+            ),
+          },
+        ]}
+      />
     </div>
   );
 }

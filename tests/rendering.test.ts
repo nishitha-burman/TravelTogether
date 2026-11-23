@@ -63,3 +63,34 @@ test("viewer rendering has no itinerary mutations or date assignment", () => {
   expect(calendar).not.toContain("Save dates");
   expect(calendar).toContain("Download calendar snapshot");
 });
+
+test("timeline preserves addition order for untimed events instead of sorting UUIDs", () => {
+  const { trip, days, events } = demoTrip();
+  const entries = [
+    { ...events[0], id: "z-first", title: "First added", day_id: days[0].id },
+    { ...events[0], id: "a-second", title: "Second added", day_id: days[0].id },
+    {
+      ...events[0],
+      id: "later",
+      title: "Later clock time",
+      day_id: days[0].id,
+      start_time: "15:00",
+    },
+    {
+      ...events[0],
+      id: "earlier",
+      title: "Earlier clock time",
+      day_id: days[0].id,
+      start_time: "09:00",
+    },
+  ];
+  const html = renderToStaticMarkup(
+    createElement(TimelineEditor, { tripId: trip.id, days, events: entries }),
+  );
+  expect(html.indexOf("First added")).toBeLessThan(
+    html.indexOf("Second added"),
+  );
+  expect(html.indexOf("Earlier clock time")).toBeLessThan(
+    html.indexOf("Later clock time"),
+  );
+});

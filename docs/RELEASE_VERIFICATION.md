@@ -56,3 +56,17 @@ The initial registry audit reported 26 affected packages, including a critical N
 6. Download through cookie and bearer sessions; import all-day, timed and overnight fixtures into Apple Calendar, Google Calendar and Outlook. Check displayed dates/offsets and document repeated-import behavior. No calendar-client imports were performed here.
 
 Subscriptions, cancellation tombstones, provider OAuth, sync workers, per-leg timezones, realtime updates and conflict history remain intentionally unimplemented. The [calendar ADR](CALENDAR_DELIVERY_ADR.md) defines the next release's ownership, privacy, revocation and deletion contracts.
+
+## Event ordering follow-up (local validation)
+
+Untimed private/public timeline events now retain addition order; timed entries remain chronological. Targeted rendering, migration/RLS and compatibility suites passed (17 tests), along with targeted ESLint, TypeScript and diff checks. Regression coverage verifies that edits do not reorder untimed events. Migration 005 updates only public RPC ordering and is pending production application. Events with identical creation timestamps, including the original Honolulu bulk import, retain a deterministic ID tie-breaker because within-batch addition order was not stored.
+
+## Tabs and calendar follow-up (local validation)
+
+Replaced section anchors with accessible tabs on private and public trip pages. Calendar now renders a Monday–Sunday event grid, all-day/timed groups, empty dates, undated-day pages, week navigation and next-day end labels. The full local suite passes (39 tests), including new week/year boundary, date-gap, undated-day, ordering, private-note omission and initial-tab coverage. TypeScript, targeted ESLint and diff checks pass.
+
+Local scaffold browser checks covered owner tab switching, arrow/End keyboard navigation, a single visible panel, retained unsaved event input, automatically opened sharing controls, and the desktop calendar. At 390px, the page had no horizontal overflow and the calendar scrolled within its own container. Viewer calendar controls remained read-only; the public calendar rendered nine sanitized events. The undated editor view was also checked. These are local checks; production verification for the tabbed layout is recorded separately below.
+
+## Tabs and calendar release — November 23, 2026
+
+Production build passed before this release, alongside the 39-test suite and targeted browser checks recorded above. The application changes and migration 005 are included in this release. Automatic approval review blocked execution of migration 005 because pushing/deploying the app was not explicit approval for replacing a production database function. The migration remains unapplied: private timelines use addition order, while public timelines continue using the previously installed RPC ordering until 005 is approved and applied. The tabbed UI and calendar do not depend on that migration.

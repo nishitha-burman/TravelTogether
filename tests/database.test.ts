@@ -34,6 +34,7 @@ before(async () => {
     "002_itinerary_planning_and_editing.sql",
     "003_private_collaboration.sql",
     "004_calendar_ready_planning.sql",
+    "005_event_addition_order.sql",
   ]) {
     const sql = (await readFile(`supabase/migrations/${name}`, "utf8")).replace(
       'create extension if not exists "pgcrypto";',
@@ -183,5 +184,38 @@ test("storage writes are user scoped", async () => {
   ]);
   await assert.rejects(
     db.query("insert into storage.objects(bucket_id,name) values('trip-images',$1)", [`${editor}/cover.jpg`]),
+  );
+});
+
+test("public untimed events keep addition order after edits; timed events stay chronological", async () => {
+  await asUser(owner);
+  const id = await scalar(
+    "select create_trip_plan('Ordering','Honolulu',1,'2026-11-04','Pacific/Honolulu',true,null)",
+  );
+  const dayId = await scalar("select id from trip_days where itinerary_id=$1", [
+    id,
+  ]);
+  const slug = await scalar("select public_slug from itineraries where id=$1", [
+    id,
+  ]);
+  await db.query(
+    `insert into itinerary_events(id,itinerary_id,day_id,title,event_type,created_at,start_time) values
+    ('ffffffff-ffff-4fff-8fff-ffffffffffff',$1,$2,'First added','food','2026-11-01T01:00Z',null),
+    ('00000000-0000-4000-8000-000000000001',$1,$2,'Second added','food','2026-11-01T02:00Z',null),
+    (gen_random_uuid(),$1,$2,'Later clock time','food','2026-11-01T03:00Z','15:00'),
+    (gen_random_uuid(),$1,$2,'Earlier clock time','food','2026-11-01T04:00Z','09:00')`,
+    [id, dayId],
+  );
+  await db.query(
+    "update itinerary_events set notes='Edited later' where itinerary_id=$1 and title='First added'",
+    [id],
+  );
+  await asUser(null);
+  const plan = (await scalar("select get_public_itinerary($1)", [slug])) as {
+    events: { title: string }[];
+  };
+  assert.deepEqual(
+    plan.events.map((e) => e.title),
+    ["First added", "Second added", "Earlier clock time", "Later clock time"],
   );
 });

@@ -51,3 +51,13 @@ The bucket remains public by design: cover art must not contain private document
 ## Verification
 
 `npm test` runs Vitest, pure calendar/validation tests, mocked route auth/authorization tests and PGlite PostgreSQL migration/RLS/transaction tests. The harness supplies minimal Auth/Storage schemas and replaces only unavailable pgcrypto extension creation (core UUID generation remains). It does not emulate Supabase’s HTTP storage MIME enforcement, live cookie refresh, or multi-connection concurrency. `npm run lint`, `npm run typecheck` and `npm run build` are release checks. Scaffold browser QA covers the same page/components but cannot verify persisted authenticated writes.
+
+## Event display ordering
+
+Private timeline reads order by start time (untimed first), `created_at`, then ID for identical creation timestamps, including legacy reads. The timeline uses a stable time sort to preserve that addition order. Migration 005 updates the sanitized public RPC to use the same ordering without exposing creation metadata. Public rendering preserves the RPC order for untimed entries. Editing uses the original creation time, not `updated_at`. Events imported in one transaction can share a creation timestamp; their original within-batch order was not recorded and uses the ID tie-breaker. Apply 005 after 004 for consistent public ordering.
+
+## Trip tabs and calendar view
+
+`TripTabs` provides ARIA tabs with roving keyboard focus and one visible panel. Panels mount on first selection and stay mounted while hidden, preserving drafts across tab changes and server refreshes. Saved-place maps and traveler requests defer until their tabs are first visited. The server controls which tabs and mutation controls each role receives; administration is inside the owner sharing panel.
+
+`TripCalendar` uses the pure `lib/calendar/view.ts` model to group dated days into Monday–Sunday weeks in UTC for date-only arithmetic. Date gaps stay visible, month/year boundaries paginate correctly, and undated days appear in separate pages without invented dates. Cards show trip-local clock times, disclose next-day ends and omit private notes/booking data. The calendar scrolls inside its container on small screens. Downloads and timezone/date assignment remain in `CalendarExport` below the private grid. Public pages reuse the view with only allowlisted event fields; dashboard cards retain their existing summaries.

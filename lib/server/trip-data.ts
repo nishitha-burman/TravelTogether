@@ -42,6 +42,7 @@ export async function readTimeline(supabase: SupabaseClient, ids: string[]) {
       )
       .in("itinerary_id", ids)
       .order("start_time", { nullsFirst: true })
+      .order("created_at")
       .order("id"),
   ]);
   let days: QueryResult<DayRow> = results[0];
@@ -60,6 +61,7 @@ export async function readTimeline(supabase: SupabaseClient, ids: string[]) {
       .select("id,itinerary_id,day_id,title,event_type,start_time,end_time,notes,metadata,created_at")
       .in("itinerary_id", ids)
       .order("start_time", { nullsFirst: true })
+      .order("created_at")
       .order("id");
     events = {
       ...result,

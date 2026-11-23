@@ -13,6 +13,7 @@ Next.js App Router + React + TypeScript + Tailwind + Supabase. Owners invite edi
    - `supabase/migrations/002_itinerary_planning_and_editing.sql`
    - `supabase/migrations/003_private_collaboration.sql`
    - `supabase/migrations/004_calendar_ready_planning.sql`
+   - `supabase/migrations/005_event_addition_order.sql`
 4. Enable Supabase Email Auth and configure the site/redirect URLs.
 5. Run `npm run dev` and open the printed local URL.
 
@@ -22,6 +23,7 @@ Next.js App Router + React + TypeScript + Tailwind + Supabase. Owners invite edi
 
 - Day-count or date-range trip creation; dates/timezone can be assigned later.
 - Owner/editor/viewer roles enforced in APIs and RLS. Owners manage invitations, membership, public links and deletion.
+- Tabbed itinerary, weekly event calendar, saved places, and owner sharing; keyboard navigation and retained drafts.
 - Timeline and saved-place editing without full-page reloads; pending/saved/error states and retained failed inputs.
 - Dashboard roles, date grouping, update dates and calendar readiness.
 - Sanitized public itineraries, with private booking data and traveler identities excluded at the database boundary.
@@ -43,7 +45,7 @@ With Supabase variables unset, browse `/`, `/dashboard`, `/trips/new`, `/trips/d
 ### What to try
 
 1. Open Honolulu from **Past trips** and check the five dates, timezone, nine activities, and saved places.
-2. Switch **Owner / Editor / Viewer** at the top. Owners see sharing controls; editors can explore event forms; viewers have no editing controls.
+2. Switch **Itinerary / Calendar / Saved places / Travelers & sharing** to view one section at a time. Calendar shows the week’s events, with download/date settings below. Then switch **Owner / Editor / Viewer** at the top. Owners see sharing controls; editors can explore event forms; viewers have no editing controls.
 3. Open **Add event**, switch categories, inspect the optional booking fields, and cancel. The preview intentionally disables saving and calendar download.
 4. Open `/public/demo-honolulu` to check the read-only view without group notes or booking details. Open Kyoto to see calendar readiness for an undated trip.
 5. To test persistence, stop the preview server, complete the Supabase setup above against staging, and run `npm run dev`. Create a separate test trip, save and reload an event, invite confirmed editor/viewer accounts, and check their permissions. Download a calendar snapshot from the private trip and inspect the dates in your calendar app. Preview examples are not inserted into your database.

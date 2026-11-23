@@ -16,6 +16,8 @@ import { SharingSettings } from "@/lib/components/sharing-settings";
 import { MapEditor } from "@/lib/components/map-editor-client";
 import { DeleteItineraryButton } from "@/lib/components/delete-itinerary-button";
 import { CalendarExport } from "@/lib/components/calendar-export";
+import { TripTabs } from "@/lib/components/trip-tabs";
+import { TripCalendar } from "@/lib/components/trip-calendar";
 import { TripHeading } from "@/lib/components/trip-heading";
 export default async function TripDetailPage({
   params,
@@ -99,58 +101,95 @@ export default async function TripDetailPage({
       {scaffold && id !== "demo-kyoto" ? (
         <p className="text-sm muted">{honoluluPreviewNote}</p>
       ) : null}
-      <nav
-        aria-label="Trip sections"
-        className="flex flex-wrap gap-x-6 gap-y-3 border-b border-[var(--line)] pb-4 text-sm font-semibold"
-      >
-        <a href="#itinerary">Itinerary</a>
-        <a href="#calendar">Calendar</a>
-        <a href="#places">Saved places</a>
-        {manage ? <a href="#sharing">Travelers & sharing</a> : null}
-      </nav>
-      <CalendarExport
-        tripId={id}
-        readiness={readiness}
-        timezone={trip.timezone ?? null}
-        startDate={trip.start_date}
-        destination={trip.destination}
-        canEdit={edit}
-        scaffold={scaffold}
+      <TripTabs
+        tabs={[
+          {
+            id: "itinerary",
+            label: "Itinerary",
+            content: (
+              <TimelineEditor
+                tripId={id}
+                days={days}
+                events={events}
+                timezone={trip.timezone}
+                canEdit={edit}
+                scaffold={scaffold}
+              />
+            ),
+          },
+          {
+            id: "calendar",
+            label: "Calendar",
+            content: (
+              <>
+                <TripCalendar
+                  days={days}
+                  events={events}
+                  timezone={trip.timezone ?? null}
+                />
+                <CalendarExport
+                  tripId={id}
+                  readiness={readiness}
+                  timezone={trip.timezone ?? null}
+                  startDate={trip.start_date}
+                  destination={trip.destination}
+                  canEdit={edit}
+                  scaffold={scaffold}
+                />
+              </>
+            ),
+          },
+          {
+            id: "places",
+            label: "Saved places",
+            content: (
+              <MapEditor
+                tripId={id}
+                markers={markers}
+                destination={trip.destination}
+                canEdit={edit}
+                scaffold={scaffold}
+              />
+            ),
+          },
+          ...(manage
+            ? [
+                {
+                  id: "sharing",
+                  label: "Travelers & sharing",
+                  content: (
+                    <>
+                      <SharingSettings
+                        tripId={id}
+                        isPublic={trip.is_public}
+                        publicSlug={trip.public_slug}
+                        scaffold={scaffold}
+                        initiallyOpen
+                      />
+                      {!scaffold ? (
+                        <details className="border-t border-[var(--line)] pt-5">
+                          <summary className="text-sm muted">
+                            Trip administration
+                          </summary>
+                          <div className="mt-4 space-y-3">
+                            <p className="text-sm muted">
+                              Deleting the trip removes its itinerary and
+                              everyone’s access.
+                            </p>
+                            <DeleteItineraryButton
+                              tripId={id}
+                              redirectToDashboard
+                            />
+                          </div>
+                        </details>
+                      ) : null}
+                    </>
+                  ),
+                },
+              ]
+            : []),
+        ]}
       />
-      <TimelineEditor
-        tripId={id}
-        days={days}
-        events={events}
-        timezone={trip.timezone}
-        canEdit={edit}
-        scaffold={scaffold}
-      />
-      <MapEditor
-        tripId={id}
-        markers={markers}
-        destination={trip.destination}
-        canEdit={edit}
-        scaffold={scaffold}
-      />
-      {manage ? (
-        <SharingSettings
-          tripId={id}
-          isPublic={trip.is_public}
-          publicSlug={trip.public_slug}
-          scaffold={scaffold}
-        />
-      ) : null}
-      {manage && !scaffold ? (
-        <details className="border-t border-[var(--line)] pt-5">
-          <summary className="text-sm muted">Trip administration</summary>
-          <div className="mt-4 space-y-3">
-            <p className="text-sm muted">
-              Deleting the trip removes its itinerary and everyone’s access.
-            </p>
-            <DeleteItineraryButton tripId={id} redirectToDashboard />
-          </div>
-        </details>
-      ) : null}
     </div>
   );
 }

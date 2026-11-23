@@ -91,7 +91,7 @@ export function TimelineEditor({ tripId, days, events, canEdit = false, scaffold
           const entries = events
             .filter((e) => e.day_id === day.id)
             .sort(
-              (a, b) => (a.start_time ?? "").localeCompare(b.start_time ?? "") || a.id.localeCompare(b.id),
+              (a, b) => (a.start_time ?? "").localeCompare(b.start_time ?? ""),
             );
           return (
             <article key={day.id} className="border-t border-[var(--line)] pt-5">
