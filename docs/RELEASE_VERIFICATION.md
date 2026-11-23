@@ -106,3 +106,5 @@ The 58-test suite passed, including photo authentication/path binding, private c
 ## Profile photos and email release — November 23, 2026
 
 After explicit approval to apply migration 008 and publish, ran the exact migration in the production SQL editor. It reported Success. The bucket is private and restricted to each authenticated account's avatar path; the email mirror trigger follows confirmed Auth email changes. This resolves the pending migration state above. No profile photo, personal field, email address or trip data was changed during migration application. The production build and 58-test suite recorded above passed before release.
+
+Commit `560ea28266f8a41cd34af679635d3364371e9242` was pushed to main and the release branch. Production deployment `dpl_D9FaT5shDc1wfTvi3an7jVDFpwxQ` reached READY. The signed-in live `/profile` page rendered the new photo chooser, editable Name field, new-email field and enabled profile-save control. No photo or email change was submitted during this read-only production check; Storage upload delivery and inbox confirmation retain the staging verification limits above.
