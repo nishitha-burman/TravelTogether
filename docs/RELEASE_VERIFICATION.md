@@ -1,6 +1,15 @@
 # v1.4 verification record
 
-Verified locally November 17–18, 2026. No remote migrations, production writes, deployment, invitation emails or provider connections were performed.
+Verified locally November 17–18, 2026, with production release and owner-flow verification completed November 19. This record was reconciled November 23 from those checks; no new checks are implied by that documentation update.
+
+## Production release and live checks
+
+- Applied migrations 002–004 to the connected production Supabase project. Saved a private Honolulu itinerary for November 4–8, 2026, with five days, nine events, three saved places and `Pacific/Honolulu`. Unspecified day placements remain tentative and times remain unset.
+- Pushed release commit `5bef6a401bd064fb77bfae3650317a30f88ad19c` to GitHub main and `codex/v1.4-release`. Vercel deployment `dpl_EPAMf3Ysxb9a2jBuLhUBV7oatHPh` reached READY and served v1.4 at https://travel-together-vert.vercel.app.
+- Anonymous trip requests redirected to login without exposing itinerary titles/events; anonymous calendar requests returned 401. The deployment's error/fatal runtime-log scan returned no entries at verification time.
+- Signed in on production, saved an existing event's private note, reloaded, and confirmed the note persisted. The dashboard and trip detail showed the saved Honolulu itinerary and owner controls.
+- Downloaded the authenticated calendar snapshot and inspected the file: nine events, nine unique UIDs, all-day dates matching the populated days, Hawaii timezone disclosure and an incremented event revision. Private notes and ticket details were excluded. November 8 has no events, so it contributes no calendar entry.
+- No calendar-client import, invitation email, provider connection, separate-account collaboration test or live Storage test was performed. Automated RLS/role coverage is not a substitute for those remaining integration checks.
 
 ## Automated checks
 
@@ -37,9 +46,9 @@ The initial registry audit reported 26 affected packages, including a critical N
 
 `npm audit --omit=dev` reports **0 vulnerabilities**. The full `npm audit` still reports **20 high-severity development-toolchain findings**, rooted in the [picomatch ReDoS advisory](https://github.com/advisories/GHSA-fc5q-39xc-vjpf) and its dependent lint/build/test packages. A clean full audit is not claimed; broad forced toolchain downgrades were not applied. The runtime lockfile uses Next.js 15.5.29, sharp 0.35.5, Zod 4.6.7 and PostCSS 8.5.33. This is a point-in-time registry audit, not a security certification.
 
-## Staging checks still required before production
+## Remaining integration checks
 
-1. Back up the database and apply migrations 003 then 004 in the same release window. Migration 003 deliberately stops if cross-trip event/day references exist; investigate those rows rather than deleting user data.
+1. For future migration releases, back up the database and validate changes in staging first. Migrations 002–004 are already applied to this production project; do not rerun the non-idempotent migration scripts. A pre-release database backup was not verified in this record.
 2. Use separate owner, editor, viewer and unrelated accounts plus an anonymous client. Exercise live cookie refresh and bearer requests, confirm raw public-trip notes/membership are inaccessible, and inspect public RPC/network responses for private fields.
 3. Accept an invitation with the confirmed matching email, change/revoke roles, remove a traveler, and confirm private page/API access changes. Check an unconfirmed account cannot accept an invite.
 4. Create both planning modes; assign dates/timezone; edit/delete an event; append/delete a day; retry failed writes and exercise simultaneous day changes. Check stored dates, revisions and trip summaries, not only UI messages.
