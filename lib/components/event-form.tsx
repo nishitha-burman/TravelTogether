@@ -74,7 +74,7 @@ export function EventForm({ event, days, defaultDayId, saving, disabled, onSave,
               {days.map((d) => (
                 <option key={d.id} value={d.id}>
                   Day {d.day_number}
-                  {d.day_date ? ` · ${dateLabel(d.day_date)}` : ""}
+                  {d.day_date ? ` · ${dateLabel(d.day_date, true)}` : ""}
                   {d.label ? ` · ${d.label}` : ""}
                 </option>
               ))}

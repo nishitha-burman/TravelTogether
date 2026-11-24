@@ -29,7 +29,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-4 px-5 py-4 sm:px-8">
             <Link href="/" className="leading-tight">
               <span className="block font-serif text-2xl font-semibold tracking-tight">TravelTogether</span>
-              <span className="text-[10px] uppercase tracking-widest text-[var(--muted)]">v1.4</span>
+              <span className="text-[10px] uppercase tracking-widest text-[var(--muted)]">v1.4.1</span>
             </Link>
             <nav aria-label="Main navigation" className="flex items-center gap-4 text-sm">
               {signedIn || !enabled ? (

@@ -108,3 +108,13 @@ The 58-test suite passed, including photo authentication/path binding, private c
 After explicit approval to apply migration 008 and publish, ran the exact migration in the production SQL editor. It reported Success. The bucket is private and restricted to each authenticated account's avatar path; the email mirror trigger follows confirmed Auth email changes. This resolves the pending migration state above. No profile photo, personal field, email address or trip data was changed during migration application. The production build and 58-test suite recorded above passed before release.
 
 Commit `560ea28266f8a41cd34af679635d3364371e9242` was pushed to main and the release branch. Production deployment `dpl_D9FaT5shDc1wfTvi3an7jVDFpwxQ` reached READY. The signed-in live `/profile` page rendered the new photo chooser, editable Name field, new-email field and enabled profile-save control. No photo or email change was submitted during this read-only production check; Storage upload delivery and inbox confirmation retain the staging verification limits above.
+
+## Weekday labels and inline day events — November 24, 2026 (local)
+
+Added abbreviated weekdays to private/public day headings, trip date ranges, dashboard start dates and event day choices using UTC date-only formatting. Day-specific Add event now mounts inside its day and submits that block's day ID. Cancel/save returns focus locally without scrolling to the itinerary heading; if an empty day becomes hidden, focus falls back without scrolling. Inline mutation errors stay beside the form. The itinerary-wide form retains its day selector.
+
+Targeted calendar/rendering tests passed (14 tests), along with TypeScript, targeted ESLint and the production build. Scaffold browser checks confirmed one add form inside day 4, Cancel focusing that day's button while retaining scroll position, and an active empty-day form staying visible with Hide empty days enabled. Shared-page and dashboard weekday labels were checked. Saves remain disabled in scaffold mode; no production data changed. This follow-up is local and not published; no migration is required.
+
+## v1.4.1 release — November 24, 2026
+
+Publishes the weekday-label and inline day-event changes verified above. The header now displays v1.4.1. README and the agent guide record the version policy: increment the visible product version for each user-facing release, with no extra increment for documentation-only follow-ups. No database migration is required.

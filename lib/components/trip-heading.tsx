@@ -34,7 +34,7 @@ export function TripHeading({
           <h1 className="page-title mt-2 break-words">{title}</h1>
           <p className="mt-3 text-sm">
             {startDate
-              ? `${dateLabel(startDate)}${endDate && endDate !== startDate ? ` – ${dateLabel(endDate)}` : ""}`
+              ? `${dateLabel(startDate, true)}${endDate && endDate !== startDate ? ` – ${dateLabel(endDate, true)}` : ""}`
               : "Dates open"}{" "}
             <span className="muted">
               · {days} {days === 1 ? "day" : "days"}

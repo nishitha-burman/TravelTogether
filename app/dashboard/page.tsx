@@ -102,7 +102,7 @@ export default async function DashboardPage() {
                       </Link>
                     </h3>
                     <p className="mt-2 text-sm">
-                      {dateLabel(trip.start_date)} · {days.length} days
+                      {dateLabel(trip.start_date, true)} · {days.length} days
                     </p>
                     <p className="mt-3 text-sm muted">
                       {ready.ready

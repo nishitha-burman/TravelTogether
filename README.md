@@ -77,7 +77,7 @@ Tests cover calendar dates/timezones/DST/escaping/privacy, cookie/bearer route a
 - [Product backlog](docs/PRODUCT_BACKLOG.md)
 - [Engineering backlog](docs/ENGINEERING_BACKLOG.md)
 
-The visible v1.4 label is maintained manually in `app/layout.tsx`; it is not derived from package.json.
+The visible v1.4.1 label is maintained manually in `app/layout.tsx`; it is not derived from package.json. Bump this product version with each user-facing release and record the release in `docs/RELEASE_VERIFICATION.md`.
 
 ## Vercel
 

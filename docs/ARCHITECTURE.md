@@ -54,6 +54,8 @@ The bucket remains public by design: cover art must not contain private document
 
 ## Event display ordering
 
+`dateLabel(date, true)` includes an abbreviated weekday using UTC date-only formatting, keeping day headings, date ranges and day selectors independent of the viewer's timezone. The timeline mounts day-specific add forms inside their article and binds the submitted day ID to that block; save/cancel returns focus to its local add button without scrolling to the itinerary heading. An active empty-day form remains visible when Hide empty days is checked. The itinerary-level add form retains the full day selector.
+
 Private timeline reads order by start time (untimed first), `created_at`, then ID for identical creation timestamps, including legacy reads. The timeline uses a stable time sort to preserve that addition order. Migration 005 updates the sanitized public RPC to use the same ordering without exposing creation metadata. Public rendering preserves the RPC order for untimed entries. Editing uses the original creation time, not `updated_at`. Events imported in one transaction can share a creation timestamp; their original within-batch order was not recorded and uses the ID tie-breaker. Apply 005 after 004 for consistent public ordering.
 
 ## Trip tabs and calendar view

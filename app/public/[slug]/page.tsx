@@ -96,7 +96,7 @@ export default async function PublicTripPage({
                   >
                     <p className="eyebrow">
                       Day {day.day_number}
-                      {day.day_date ? ` / ${dateLabel(day.day_date)}` : ""}
+                      {day.day_date ? ` / ${dateLabel(day.day_date, true)}` : ""}
                     </p>
                     <h3 className="mt-1 font-serif text-2xl">
                       {day.label || "An open day"}

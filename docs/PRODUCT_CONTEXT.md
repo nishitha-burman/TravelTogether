@@ -14,6 +14,7 @@ TravelTogether helps a small group build one shared itinerary and carry a dated 
 - Trip sections use tabs: Itinerary, Calendar, Saved places, and owner-only Travelers & sharing. Arrow keys, Home and End navigate tabs; visited panels retain unfinished form input.
 - Calendar shows a weekly date grid with all-day and timed events, category colors, week navigation and explicit overnight labels. Undated days remain undated. Private calendar downloads and date/timezone controls appear below the grid; public calendars use sanitized data.
 - Timeline editing uses progressive forms, readable booking details and saving/error/saved states. Server refreshes replace full document reloads and retain failed input.
+- Dated day headings, trip date ranges, dashboard trip starts and event day choices show abbreviated weekdays. A day's Add event opens its form inside that day and returns focus there after save/cancel; the itinerary-wide Add event retains its day selector.
 - Set a start date and trip timezone in Calendar to assign dates to all days. Deleting a day does not shift other bookings; explicitly assigning a start date does.
 - Calendar readiness identifies missing events, dates, timezone or invalid/ambiguous clock-change times. Ready trips export timezone-correct `.ics` snapshots for each authorized traveler.
 - A snapshot is one-time and does not update after import. Calendar output excludes notes and booking details. Do not describe it as sync.
@@ -21,7 +22,7 @@ TravelTogether helps a small group build one shared itinerary and carry a dated 
 
 ## Product direction and limits
 
-The UI uses restrained typography, warm paper, dark green text, simple controls and itinerary-first hierarchy. The manual product version is in `app/layout.tsx`. Dashboard separates dated, undated and past trips and shows role, readiness and update date.
+The UI uses restrained typography, warm paper, dark green text, simple controls and itinerary-first hierarchy. The current product version is v1.4.1, manually rendered in `app/layout.tsx` and incremented with each user-facing release. Dashboard separates dated, undated and past trips and shows role, readiness and update date.
 
 Scaffold mode uses the real workspace components with sample Honolulu/Kyoto plans. Owner/editor/viewer previews work; persistence and downloads are disabled. No external service is required for core rendering; maps and images require network access.
 

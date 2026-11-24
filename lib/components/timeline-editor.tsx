@@ -14,7 +14,8 @@ type Props = {
 };
 export function TimelineEditor({ tripId, days, events, canEdit = false, scaffold = false, timezone }: Props) {
   const [condensed, setCondensed] = useState(false);
-  const [addToDay, setAddToDay] = useState<string | null>(null);
+  const [addToDay, setAddToDay] = useState<{ dayId: string; inline: boolean } | null>(null);
+  const dayAddButtons = useRef(new Map<string, HTMLButtonElement>());
   const [editing, setEditing] = useState<string | null>(null);
   const [editingDay, setEditingDay] = useState<string | null>(null);
   const [dayLabel, setDayLabel] = useState("");
@@ -26,7 +27,24 @@ export function TimelineEditor({ tripId, days, events, canEdit = false, scaffold
   function focusHeading() {
     requestAnimationFrame(() => heading.current?.focus());
   }
-  const visibleDays = condensed ? days.filter((d) => events.some((e) => e.day_id === d.id)) : days;
+  const visibleDays = condensed ? days.filter((d) => events.some((e) => e.day_id === d.id) || (addToDay?.inline && addToDay.dayId === d.id)) : days;
+  function closeAddForm(dayId: string, inline: boolean) {
+    setAddToDay(null);
+    if (inline) requestAnimationFrame(() => (dayAddButtons.current.get(dayId) ?? heading.current)?.focus({ preventScroll: true }));
+    else focusHeading();
+  }
+  function addForm(dayId: string, inline: boolean) {
+    return <EventForm
+      key={dayId}
+      days={inline ? undefined : days}
+      defaultDayId={dayId}
+      saving={saving}
+      disabled={scaffold}
+      onCancel={() => closeAddForm(dayId, inline)}
+      onSave={(body) => mutate(`/api/trips/${tripId}/events`, "POST", inline ? { ...body, dayId } : body,
+        () => closeAddForm(dayId, inline))}
+    />;
+  }
   return (
     <section id="itinerary" aria-labelledby="timeline-heading" className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -49,7 +67,7 @@ export function TimelineEditor({ tripId, days, events, canEdit = false, scaffold
             <button
               className="button-secondary"
               disabled={saving || !days.length}
-              onClick={() => setAddToDay(days[0]?.id ?? null)}
+              onClick={() => setAddToDay(days[0] ? { dayId: days[0].id, inline: false } : null)}
             >
               Add event
             </button>
@@ -62,30 +80,12 @@ export function TimelineEditor({ tripId, days, events, canEdit = false, scaffold
       <div role="status" className="status">
         {status}
       </div>
-      {error ? (
+      {error && !addToDay?.inline ? (
         <p role="alert" className="error">
           {error}
         </p>
       ) : null}
-      {canEdit && addToDay ? (
-        <EventForm
-          key={addToDay}
-          days={days}
-          defaultDayId={addToDay}
-          saving={saving}
-          disabled={scaffold}
-          onCancel={() => {
-            setAddToDay(null);
-            focusHeading();
-          }}
-          onSave={(body) =>
-            mutate(`/api/trips/${tripId}/events`, "POST", body, () => {
-              setAddToDay(null);
-              focusHeading();
-            })
-          }
-        />
-      ) : null}
+      {canEdit && addToDay && !addToDay.inline ? addForm(addToDay.dayId, false) : null}
       <div className="space-y-8">
         {visibleDays.map((day) => {
           const entries = events
@@ -94,18 +94,21 @@ export function TimelineEditor({ tripId, days, events, canEdit = false, scaffold
               (a, b) => (a.start_time ?? "").localeCompare(b.start_time ?? ""),
             );
           return (
-            <article key={day.id} className="border-t border-[var(--line)] pt-5">
+            <article key={day.id} aria-label={`Day ${day.day_number}`} className="border-t border-[var(--line)] pt-5">
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div>
                   <p className="eyebrow">
                     Day {day.day_number}
-                    {day.day_date ? ` / ${dateLabel(day.day_date)}` : ""}
+                    {day.day_date ? ` / ${dateLabel(day.day_date, true)}` : ""}
                   </p>
                   <h3 className="mt-1 font-serif text-2xl">{day.label || "An open day"}</h3>
                 </div>
                 {canEdit ? (
                   <div className="flex gap-2">
-                    <button className="text-button" onClick={() => setAddToDay(day.id)} disabled={saving}>
+                    <button className="text-button"
+                      ref={(node) => { if (node) dayAddButtons.current.set(day.id, node); else dayAddButtons.current.delete(day.id); }}
+                      aria-expanded={Boolean(addToDay?.inline && addToDay.dayId === day.id)}
+                      onClick={() => setAddToDay({ dayId: day.id, inline: true })} disabled={saving}>
                       Add event<span className="sr-only"> to day {day.day_number}</span>
                     </button>
                     <details className="relative">
@@ -145,6 +148,12 @@ export function TimelineEditor({ tripId, days, events, canEdit = false, scaffold
                   </div>
                 ) : null}
               </div>
+              {canEdit && addToDay?.inline && addToDay.dayId === day.id ? (
+                <div className="mt-4 space-y-3">
+                  {addForm(day.id, true)}
+                  {error ? <p role="alert" className="error">{error}</p> : null}
+                </div>
+              ) : null}
               {canEdit && editingDay === day.id ? (
                 <form
                   className="mt-4 flex flex-wrap items-end gap-3"

@@ -20,9 +20,10 @@ export function eventInstants(date: string, start: string, end: string | null, t
   const endAt = endDay.toPlainDateTime(endTime).toZonedDateTime(timezone, { disambiguation: "reject" });
   return { start: startAt.toInstant(), end: endAt.toInstant() };
 }
-export function dateLabel(date: string | null | undefined) {
+export function dateLabel(date: string | null | undefined, weekday = false) {
   if (!date) return "Dates open";
   return new Intl.DateTimeFormat("en", {
+    ...(weekday ? { weekday: "short" as const } : {}),
     month: "short",
     day: "numeric",
     year: "numeric",
