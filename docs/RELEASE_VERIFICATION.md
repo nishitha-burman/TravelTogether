@@ -118,3 +118,5 @@ Targeted calendar/rendering tests passed (14 tests), along with TypeScript, targ
 ## v1.4.1 release — November 24, 2026
 
 Publishes the weekday-label and inline day-event changes verified above. The header now displays v1.4.1. README and the agent guide record the version policy: increment the visible product version for each user-facing release, with no extra increment for documentation-only follow-ups. No database migration is required.
+
+Release commit `aede3253939527d970a4d2833df021960ff8b3cc` was pushed to main and the release branch after the updated production build passed. Deployment `dpl_5N3m1LhxHxASp16nnWtztu8fAv4z` reached READY. The signed-in live Honolulu page showed v1.4.1 and weekday labels; day 4's Add event opened exactly one form inside day 4. Canceled the blank form without submitting any data. This resolves the local-only status above.
