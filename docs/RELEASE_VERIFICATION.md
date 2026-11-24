@@ -120,3 +120,23 @@ Targeted calendar/rendering tests passed (14 tests), along with TypeScript, targ
 Publishes the weekday-label and inline day-event changes verified above. The header now displays v1.4.1. README and the agent guide record the version policy: increment the visible product version for each user-facing release, with no extra increment for documentation-only follow-ups. No database migration is required.
 
 Release commit `aede3253939527d970a4d2833df021960ff8b3cc` was pushed to main and the release branch after the updated production build passed. Deployment `dpl_5N3m1LhxHxASp16nnWtztu8fAv4z` reached READY. The signed-in live Honolulu page showed v1.4.1 and weekday labels; day 4's Add event opened exactly one form inside day 4. Canceled the blank form without submitting any data. This resolves the local-only status above.
+
+## Version correction — November 24, 2026 (local)
+
+At the user's request, corrected the current product version to v1.5 in the header, README and product context. Earlier entries retain the version actually deployed at the time. This label-only change is available in the local dev server and has not been published.
+
+## Profile summary cleanup — November 24, 2026 (local v1.5)
+
+Replaced the separate photo, About you and account editing panels with a read-only profile summary and one Edit profile disclosure. The header uses the real authenticated photo; successful uploads notify the shared avatar revision so it refreshes immediately. Removed the Private badge beside the name while preserving self-only access and a short explanation inside editing. Basic fields, photo upload and email confirmation remain separate forms inside the same editor.
+
+Nine targeted rendering/media tests passed, along with TypeScript, targeted ESLint and diff checks. On the local signed-in page, the existing uploaded photo loaded successfully (310px source width), exactly one profile image rendered, Edit profile exposed name/photo/email controls, and Cancel closed them. No personal values or photo were modified during verification. Upload HTTP and Auth behavior are unchanged; this UI cleanup requires no migration and has not been published. The local dev server remains running for iteration.
+
+## Profile and account settings split — November 24, 2026 (local v1.5)
+
+Moved email, pending email changes, confirmation errors and member-since details to authenticated `/settings/account`, linked from Profile. Profile editing now contains only photo/name/city/bio, and its server-to-client summary props omit email/join date. Travel statistics remain private and are labeled accordingly. No collaborator-facing profile access or new permissions were added.
+
+Twelve targeted rendering/media/callback tests passed, plus TypeScript, targeted ESLint and diff checks. Browser verification confirmed no email/member-since fields on Profile and working navigation to the signed-in Account settings page. Anonymous requests contained Next.js's streamed sign-in redirect instead of account details. New email-change callbacks return to Account settings; tests also cover previously sent `/profile` callback links and rejection of external redirect destinations. No profile, email or photo changes were submitted. No migration is required; this remains part of the unpublished local v1.5 iteration.
+
+## v1.5 release — November 24, 2026
+
+Releases the profile summary, current-photo header and separate private Account settings experience described above, together with the user's corrected major.minor version policy. The header, README and product context display v1.5; local iteration is grouped into this single release bump. Product, architecture and agent instructions are updated. All 60 tests and the production build passed before publishing, including the new settings route. No migration or permission change is required. The local dev server is restarted after the build for continued iteration.

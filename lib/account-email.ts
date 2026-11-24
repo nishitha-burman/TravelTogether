@@ -13,7 +13,10 @@ export async function requestEmailChange(
     throw new Error("Enter a different email address.");
   const { data, error } = await supabase.auth.updateUser(
     { email: parsed.data },
-    { emailRedirectTo: new URL("/auth/callback?next=/profile", origin).href },
+    {
+      emailRedirectTo: new URL("/auth/callback?next=/settings/account", origin)
+        .href,
+    },
   );
   if (error) throw new Error(error.message);
   return data.user;

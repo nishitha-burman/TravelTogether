@@ -5,7 +5,10 @@ import { getSupabaseEnv, isSupabaseConfigured } from "@/lib/env";
 export async function GET(request: NextRequest) {
   const requestUrl = new URL(request.url);
   const code = requestUrl.searchParams.get("code");
-  const next = requestUrl.searchParams.get("next") || "/dashboard";
+  const requestedNext = requestUrl.searchParams.get("next") || "/dashboard";
+  // Keep previously sent email-confirmation links working after moving settings.
+  const next =
+    requestedNext === "/profile" ? "/settings/account" : requestedNext;
   const redirectUrl = new URL(
     next.startsWith("/") && !next.startsWith("//") ? next : "/dashboard",
     requestUrl.origin,
@@ -15,9 +18,9 @@ export async function GET(request: NextRequest) {
   const response = NextResponse.redirect(redirectUrl);
 
   if (!isSupabaseConfigured() || !code) {
-    if (next === "/profile" && !code)
+    if (next === "/settings/account" && !code)
       return NextResponse.redirect(
-        new URL("/profile?emailConfirmation=error", requestUrl.origin),
+        new URL("/settings/account?emailConfirmation=error", requestUrl.origin),
       );
     return response;
   }
@@ -47,8 +50,8 @@ export async function GET(request: NextRequest) {
     response.headers.set(
       "Location",
       new URL(
-        next === "/profile"
-          ? "/profile?emailConfirmation=error"
+        next === "/settings/account"
+          ? "/settings/account?emailConfirmation=error"
           : "/auth/login",
         requestUrl.origin,
       ).href,

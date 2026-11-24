@@ -4,15 +4,46 @@ import { useRef, useState } from "react";
 import { getAuthJsonHeaders } from "@/lib/client-api";
 import { PROFILE_PHOTO_LIMIT, PROFILE_PHOTO_TYPES } from "@/lib/profile-photo";
 
-export function ProfilePhoto({
+export function ProfileAvatar({
   initials,
+  version,
   scaffold = false,
 }: {
   initials: string;
+  version: number;
   scaffold?: boolean;
 }) {
-  const [version, setVersion] = useState(0);
-  const [hasPhoto, setHasPhoto] = useState(!scaffold);
+  const src = `/api/profile/photo?v=${version}`;
+  const [failedSrc, setFailedSrc] = useState<string | null>(null);
+  return !scaffold && failedSrc !== src ? (
+    // Authenticated images must bypass Next's public image optimizer.
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
+      key={src}
+      src={src}
+      alt="Your profile photo"
+      width={80}
+      height={80}
+      className="h-20 w-20 shrink-0 rounded-full object-cover"
+      onError={() => setFailedSrc(src)}
+    />
+  ) : (
+    <span
+      aria-label="Profile initials"
+      className="flex h-20 w-20 shrink-0 items-center justify-center rounded-full bg-[var(--ink)] font-serif text-2xl text-white"
+    >
+      {initials}
+    </span>
+  );
+}
+
+export function ProfilePhoto({
+  scaffold = false,
+  onUploaded,
+}: {
+  scaffold?: boolean;
+  onUploaded: () => void;
+}) {
   const [file, setFile] = useState<File | null>(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -21,7 +52,7 @@ export function ProfilePhoto({
   const input = useRef<HTMLInputElement>(null);
   return (
     <form
-      className="panel space-y-4"
+      className="space-y-4 border-b border-[var(--line)] pb-6"
       onSubmit={async (event) => {
         event.preventDefault();
         if (!file || scaffold || locked.current) return;
@@ -42,8 +73,7 @@ export function ProfilePhoto({
           const result = await response.json();
           if (!response.ok)
             throw new Error(result.error || "Could not upload your photo.");
-          setVersion(Date.now());
-          setHasPhoto(true);
+          onUploaded();
           setFile(null);
           if (input.current) input.current.value = "";
           setStatus("Photo saved");
@@ -59,31 +89,6 @@ export function ProfilePhoto({
         }
       }}
     >
-      <h2 className="section-heading">Profile photo</h2>
-      <div className="flex items-center gap-4">
-        {hasPhoto ? (
-          // Authenticated image endpoint must bypass Next's public image optimizer.
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={`/api/profile/photo?v=${version}`}
-            alt="Your profile photo"
-            width={80}
-            height={80}
-            className="h-20 w-20 shrink-0 rounded-full object-cover"
-            onError={() => setHasPhoto(false)}
-          />
-        ) : (
-          <span
-            aria-label="Profile initials"
-            className="flex h-20 w-20 shrink-0 items-center justify-center rounded-full bg-[var(--ink)] font-serif text-2xl text-white"
-          >
-            {initials}
-          </span>
-        )}
-        <p className="text-sm muted">
-          A photo for your private profile. JPG, PNG or WebP, up to 2 MB.
-        </p>
-      </div>
       <label className="field-label">
         Choose profile photo
         <input
@@ -109,6 +114,10 @@ export function ProfilePhoto({
           }}
         />
       </label>
+      <p className="text-xs muted">
+        JPG, PNG or WebP, up to 2 MB. Uploads save immediately and update the
+        photo above.
+      </p>
       <button
         className="button-secondary"
         disabled={scaffold || saving || !file}

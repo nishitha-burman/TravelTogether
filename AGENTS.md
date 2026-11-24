@@ -15,7 +15,7 @@ TravelTogether is a collaborative travel itinerary planner built with Next.js an
 - Some code contains compatibility fallbacks for older Supabase schemas that may be missing newer columns such as `city`, `planning_mode`, `start_date`, `end_date`, or `day_date`.
 - Read access is broader than write access. Shared/public trips can be viewed, but most mutation APIs are still owner-only.
 - The visible product version in the header is manually rendered in `app/layout.tsx`. It is not derived from `package.json`.
-- Bump the visible product version with every user-facing release, update README's current version, and record the version and verification in `docs/RELEASE_VERIFICATION.md`. Use patch increments for small improvements/fixes; do not bump again for documentation-only follow-ups to the same release.
+- Before deploying significant changes, always bump the visible product version, update README's current version, and record the version and verification in `docs/RELEASE_VERIFICATION.md`. Use judgment based on scope: bump the whole number for a major product milestone, fundamental redesign or breaking change (e.g. v1.5 → v2.0); bump the number after the dot for incremental features, experience improvements or fixes (e.g. v1.5 → v1.6). Keep the major.minor format unless the user requests otherwise. Group local iteration into one release bump; do not bump for every edit or documentation-only follow-up to the same release.
 
 ## Change Checklist
 - If you add or change data fields, update:

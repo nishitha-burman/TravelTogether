@@ -8,10 +8,14 @@ export function ProfileForm({
   profile,
   enabled,
   scaffold = false,
+  onSaved,
+  onCancel,
 }: {
   profile: ProfileRow;
   enabled: boolean;
   scaffold?: boolean;
+  onSaved?: () => void;
+  onCancel?: () => void;
 }) {
   const [name, setName] = useState(profile.display_name ?? "");
   const [city, setCity] = useState(profile.home_city ?? "");
@@ -20,18 +24,22 @@ export function ProfileForm({
   const { mutate, saving, error, status } = useTripMutation();
   return (
     <form
-      className="panel space-y-5"
+      className="space-y-5"
       onSubmit={(event) => {
         event.preventDefault();
         if (enabled && !scaffold && !saving)
-          void mutate("/api/profile", "PATCH", {
-            displayName: name,
-            homeCity: city,
-            bio,
-          });
+          void mutate(
+            "/api/profile",
+            "PATCH",
+            {
+              displayName: name,
+              homeCity: city,
+              bio,
+            },
+            onSaved,
+          );
       }}
     >
-      <h2 className="section-heading">About you</h2>
       <fieldset disabled={saving || !enabled} className="space-y-5">
         <label className="field-label">
           Name
@@ -41,6 +49,7 @@ export function ProfileForm({
             onChange={(event) => setName(event.target.value)}
             maxLength={80}
             autoComplete="name"
+            autoFocus
             placeholder="What should we call you?"
           />
         </label>
@@ -69,13 +78,21 @@ export function ProfileForm({
         <p id={bioCountId} className="text-xs muted">
           {bio.length}/500 characters
         </p>
-        <p className="text-sm muted">
-          Your profile is private to your account. It isn’t included in public
-          itineraries or calendar downloads.
-        </p>
-        <button className="button" disabled={scaffold || !enabled || saving}>
-          {saving ? "Saving…" : "Save profile"}
-        </button>
+        <div className="flex flex-wrap gap-3">
+          <button className="button" disabled={scaffold || !enabled || saving}>
+            {saving ? "Saving…" : "Save profile"}
+          </button>
+          {onCancel ? (
+            <button
+              type="button"
+              className="button-secondary"
+              onClick={onCancel}
+              disabled={saving}
+            >
+              Cancel
+            </button>
+          ) : null}
+        </div>
       </fieldset>
       {scaffold ? (
         <p className="status">Sample profile · Changes are not saved.</p>

@@ -1,12 +1,11 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { isSupabaseConfigured } from "@/lib/env";
 import { requireUser } from "@/lib/trips";
 import { readProfile } from "@/lib/server/profile-data";
 import { readTrips } from "@/lib/server/trip-data";
 import { accountTripStats } from "@/lib/profile";
-import { ProfileForm } from "@/lib/components/profile-form";
-import { ProfilePhoto } from "@/lib/components/profile-photo";
-import { AccountEmailForm } from "@/lib/components/account-email-form";
+import { ProfileSummary } from "@/lib/components/profile-summary";
 import { dateLabel } from "@/lib/calendar/time";
 import { demoTrip } from "@/lib/demo";
 import type { ProfileRow } from "@/types/trip";
@@ -17,6 +16,8 @@ export default async function ProfilePage({
   searchParams: Promise<{ emailConfirmation?: string }>;
 }) {
   const params = await searchParams;
+  if (params.emailConfirmation === "error")
+    redirect("/settings/account?emailConfirmation=error");
   const scaffold = !isSupabaseConfigured();
   let profile: ProfileRow = {
     id: "demo-owner",
@@ -25,18 +26,12 @@ export default async function ProfilePage({
     bio: null,
     created_at: "2026-11-16T12:00:00Z",
   };
-  let joinedAt = profile.created_at;
   let userId = profile.id;
-  let email: string | undefined = "traveler@example.com";
-  let pendingEmail: string | undefined;
   let enabled = true;
   let trips = [demoTrip().trip, demoTrip("demo-kyoto").trip];
   if (!scaffold) {
     const { supabase, user } = await requireUser();
     userId = user.id;
-    joinedAt = user.created_at;
-    email = user.email;
-    pendingEmail = user.new_email;
     const [account, owned, memberships] = await Promise.all([
       readProfile(supabase, user.id),
       supabase.from("itineraries").select("id").eq("owner_id", user.id),
@@ -67,14 +62,6 @@ export default async function ProfilePage({
   }
   const today = new Date().toISOString().slice(0, 10);
   const stats = accountTripStats(trips, userId, today);
-  const name = profile.display_name || "Traveler";
-  const initials = name
-    .split(/\s+/)
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((word) => word[0])
-    .join("")
-    .toUpperCase();
   const upcoming = trips
     .filter(
       (trip) => trip.start_date && (trip.end_date ?? trip.start_date) >= today,
@@ -106,27 +93,12 @@ export default async function ProfilePage({
           Sample account · Statistics below are examples.
         </p>
       ) : null}
-      <header className="flex flex-wrap items-start justify-between gap-5">
-        <div className="flex items-center gap-4">
-          <span
-            aria-hidden="true"
-            className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full bg-[var(--ink)] font-serif text-2xl text-white"
-          >
-            {initials}
-          </span>
-          <div>
-            <p className="eyebrow">Your profile · Private</p>
-            <h1 className="page-title mt-2 break-words">{name}</h1>
-            {profile.home_city ? (
-              <p className="mt-2 text-sm muted">Based in {profile.home_city}</p>
-            ) : null}
-          </div>
-        </div>
-        <Link href="/dashboard" className="button-secondary">
-          Your trips →
-        </Link>
-      </header>
+      <ProfileSummary profile={profile} enabled={enabled} scaffold={scaffold} />
       <section aria-label="Your travel statistics" className="space-y-4">
+        <div>
+          <h2 className="section-heading">Your travel statistics</h2>
+          <p className="mt-1 text-xs muted">Only visible to you</p>
+        </div>
         <dl className="grid grid-cols-2 gap-4 lg:grid-cols-4">
           {cards.map((card) => (
             <div key={card.label} className="panel">
@@ -144,82 +116,39 @@ export default async function ProfilePage({
           and accepted memberships. Past trips are based on scheduled end dates.
         </p>
       </section>
-      <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)]">
-        <div className="min-w-0 space-y-6">
-          <ProfilePhoto initials={initials} scaffold={scaffold} />
-          <ProfileForm
-            profile={profile}
-            enabled={enabled}
-            scaffold={scaffold}
-          />
-        </div>
-        <div className="space-y-6">
-          <section
-            className="panel space-y-4"
-            aria-labelledby="account-heading"
-          >
-            <h2 id="account-heading" className="section-heading">
-              Your account
-            </h2>
-            <dl className="space-y-4 text-sm">
-              <div>
-                <dt className="muted">Email</dt>
-                <dd className="mt-1 break-all">{email ?? "Not provided"}</dd>
-              </div>
-              <div>
-                <dt className="muted">Member since</dt>
-                <dd className="mt-1">{dateLabel(joinedAt.slice(0, 10))}</dd>
-              </div>
-            </dl>
-            <AccountEmailForm
-              email={email}
-              pendingEmail={pendingEmail}
-              scaffold={scaffold}
-              confirmationError={params.emailConfirmation === "error"}
-            />
-            <p className="text-xs leading-relaxed muted">
-              Trips you create belong to this account. Joining another trip adds
-              it to Your trips; its owner manages sharing.
-            </p>
-          </section>
-          <section
-            className="panel space-y-4"
-            aria-labelledby="profile-upcoming"
-          >
-            <h2 id="profile-upcoming" className="section-heading">
-              On the horizon
-            </h2>
-            {upcoming.length ? (
-              <ul className="divide-y divide-[var(--line)]">
-                {upcoming.map((trip) => (
-                  <li key={trip.id} className="py-3">
-                    <Link
-                      className="font-semibold underline underline-offset-4"
-                      href={`/trips/${trip.id}`}
-                    >
-                      {trip.title}
-                    </Link>
-                    <p className="mt-1 text-sm muted">
-                      {dateLabel(trip.start_date)} · {trip.destination}
-                    </p>
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <p className="text-sm muted">
-                No upcoming dated trips yet. Your next adventure can start with
-                an idea.
-              </p>
-            )}
-            <Link
-              href="/trips/new"
-              className="text-sm font-semibold underline underline-offset-4"
-            >
-              Plan a trip →
-            </Link>
-          </section>
-        </div>
-      </div>
+      <section className="panel space-y-4" aria-labelledby="profile-upcoming">
+        <h2 id="profile-upcoming" className="section-heading">
+          On the horizon
+        </h2>
+        {upcoming.length ? (
+          <ul className="divide-y divide-[var(--line)]">
+            {upcoming.map((trip) => (
+              <li key={trip.id} className="py-3">
+                <Link
+                  className="font-semibold underline underline-offset-4"
+                  href={`/trips/${trip.id}`}
+                >
+                  {trip.title}
+                </Link>
+                <p className="mt-1 text-sm muted">
+                  {dateLabel(trip.start_date)} · {trip.destination}
+                </p>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="text-sm muted">
+            No upcoming dated trips yet. Your next adventure can start with an
+            idea.
+          </p>
+        )}
+        <Link
+          href="/trips/new"
+          className="text-sm font-semibold underline underline-offset-4"
+        >
+          Plan a trip →
+        </Link>
+      </section>
     </div>
   );
 }

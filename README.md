@@ -77,7 +77,9 @@ Tests cover calendar dates/timezones/DST/escaping/privacy, cookie/bearer route a
 - [Product backlog](docs/PRODUCT_BACKLOG.md)
 - [Engineering backlog](docs/ENGINEERING_BACKLOG.md)
 
-The visible v1.4.1 label is maintained manually in `app/layout.tsx`; it is not derived from package.json. Bump this product version with each user-facing release and record the release in `docs/RELEASE_VERIFICATION.md`.
+The visible v1.5 label is maintained manually in `app/layout.tsx`; it is not derived from package.json. Always bump this product version before deploying significant changes and record the release in `docs/RELEASE_VERIFICATION.md`. Use judgment: whole-number bumps for major milestones, fundamental redesigns or breaking changes (v2.0); decimal-number bumps for incremental features, improvements or fixes (v1.6). Keep the major.minor format and group local iteration into one release bump.
+
+Profile editing covers your photo, name, city and bio. The **Account settings** link opens `/settings/account` for private email and member-since details; email changes return there after confirmation. Profiles and travel statistics remain private.
 
 ## Vercel
 

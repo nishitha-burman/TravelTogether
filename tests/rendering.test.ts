@@ -2,6 +2,8 @@ import { test, expect, vi } from "vitest";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { ProfileForm } from "@/lib/components/profile-form";
+import { ProfileSummary } from "@/lib/components/profile-summary";
+import { ProfileAvatar } from "@/lib/components/profile-photo";
 import { TripSettings } from "@/lib/components/trip-settings";
 import { TimelineEditor } from "@/lib/components/timeline-editor";
 import { CalendarExport } from "@/lib/components/calendar-export";
@@ -109,12 +111,28 @@ test("trip settings expose title and scheduling while scaffold writes remain dis
   expect(html).toContain('disabled=""');
 });
 
-test("profile scaffold keeps fields editable but disables saving and discloses privacy", () => {
+test("profile scaffold keeps fields editable but disables saving without a separate about section", () => {
   const profile = {id:"owner",display_name:"Traveler",home_city:null,bio:null,created_at:"2026-11-01T12:00:00Z"};
   const html = renderToStaticMarkup(createElement(ProfileForm, {profile,enabled:true,scaffold:true}));
   expect(html).toContain("Name");
   expect(html).toContain("Home city");
-  expect(html).toContain("Your profile is private");
+  expect(html).not.toContain("About you</h2>");
   expect(html).toContain("Changes are not saved");
   expect(html).toContain('disabled=""');
+});
+
+test("profile summary starts read-only with one edit button and the current photo", () => {
+  const profile = {id:"owner",display_name:"Traveler",home_city:"Honolulu",bio:"Food and hikes",created_at:"2026-11-01T12:00:00Z"};
+  const html = renderToStaticMarkup(createElement(ProfileSummary, {profile,enabled:true,scaffold:false}));
+  expect(html).toContain("Edit profile</button>");
+  expect(html).toContain('aria-expanded="false"');
+  expect(html).toContain("Food and hikes");
+  expect(html).toContain("Honolulu");
+  expect(html).not.toContain("traveler@example.test");
+  expect(html).not.toContain("Member since");
+  expect(html).toContain('href="/settings/account"');
+  expect(html).not.toContain("<form");
+  expect(html).not.toContain("Your profile · Private");
+  expect(html).toContain('/api/profile/photo?v=0');
+  expect(renderToStaticMarkup(createElement(ProfileAvatar, {initials:"T",version:1}))).toContain('/api/profile/photo?v=1');
 });

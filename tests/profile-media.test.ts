@@ -72,7 +72,7 @@ test("photo responses require auth, use private caching and never accept another
   ).toBe(401);
   expect((await PUT(photo(png)))?.status).toBe(401);
 });
-test("email change uses Auth with a profile confirmation return and retains service errors", async () => {
+test("email change uses Auth with an account settings confirmation return and retains service errors", async () => {
   vi.mocked(client.auth.updateUser).mockResolvedValue({
     data: { user: { id: "me", email: "old@example.test", new_email: "new@example.test" } as User },
     error: null,
@@ -85,7 +85,7 @@ test("email change uses Auth with a profile confirmation return and retains serv
   );
   expect(client.auth.updateUser).toHaveBeenCalledWith(
     { email: "new@example.test" },
-    { emailRedirectTo: "https://travel.example/auth/callback?next=/profile" },
+    { emailRedirectTo: "https://travel.example/auth/callback?next=/settings/account" },
   );
   vi.mocked(client.auth.updateUser).mockClear();
   await expect(
